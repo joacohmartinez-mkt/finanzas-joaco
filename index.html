@@ -174,16 +174,33 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .stat-val.up{color:var(--grn)}.stat-val.dn{color:var(--red)}
 .stat-sub{font-size:10px;color:var(--t3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* HEATMAP CALENDARIO */
-.heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px}
-.hm-hdr{font-size:9px;color:var(--t3);text-align:center;font-weight:600;letter-spacing:.5px;padding-bottom:2px}
-.hm-cell{aspect-ratio:1;border-radius:5px;background:var(--bg);display:flex;align-items:flex-end;justify-content:flex-end;padding:3px 4px;font-size:9px;color:var(--t3);font-weight:600;line-height:1;border:1px solid transparent;transition:transform .12s}
+/* HEATMAP CALENDARIO (compacto) */
+.heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:6px auto 0;max-width:240px}
+.hm-hdr{font-size:8px;color:var(--t3);text-align:center;font-weight:600;letter-spacing:.4px;padding-bottom:2px}
+.hm-cell{aspect-ratio:1;border-radius:3px;background:var(--bg);display:flex;align-items:flex-end;justify-content:flex-end;padding:1px 3px;font-size:8px;color:var(--t3);font-weight:600;line-height:1;border:1px solid transparent}
 .hm-cell.hm-spent{color:var(--t2)}
 .hm-cell.hm-today{border-color:var(--blue)}
 .hm-cell.hm-empty{visibility:hidden}
-.hm-legend{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:10px;font-size:9px;color:var(--t3)}
-.hm-leg-grad{display:flex;gap:3px}
-.hm-leg-grad i{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--brd)}
+.hm-legend{display:flex;align-items:center;gap:5px;justify-content:center;margin-top:8px;font-size:9px;color:var(--t3)}
+.hm-leg-grad{display:flex;gap:2px}
+.hm-leg-grad i{display:inline-block;width:9px;height:9px;border-radius:2px;border:1px solid var(--brd)}
+
+/* COLLAPSE (desplegables en Más) */
+.collapse{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);margin:10px 14px 0;overflow:hidden;box-shadow:var(--sh)}
+.collapse-hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;-webkit-user-select:none;user-select:none}
+.collapse-title{font-size:14px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px}
+.collapse-count{font-size:10px;font-weight:700;color:var(--t2);background:var(--bg);border:1px solid var(--brd);padding:2px 8px;border-radius:20px}
+.collapse-chev{color:var(--t3);font-size:14px;transition:transform .22s}
+.collapse.open .collapse-chev{transform:rotate(180deg)}
+.collapse-body{display:none;border-top:1px solid var(--brd);padding:10px 14px 14px}
+.collapse.open .collapse-body{display:block}
+.collapse-body .add-rec-btn{margin-bottom:8px}
+.collapse-body .rec-card{margin-bottom:8px}
+.collapse-body .rec-card:last-child{margin-bottom:0}
+.collapse-body .bset-row{margin-bottom:6px}
+.collapse-body .bset-row:last-child{margin-bottom:0}
+.collapse-body .conf-block{margin-bottom:8px}
+.collapse-body .conf-block:last-child{margin-bottom:0}
 
 /* BUDGET SECTION IN DASHBOARD */
 .budget-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -342,8 +359,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <div class="bot-nav">
     <div class="nav-item a" id="nav0" onclick="setTab(0)"><div class="nav-ico">🏠</div><div class="nav-lbl">Principal</div></div>
     <div class="nav-item" id="nav1" onclick="setTab(1)"><div class="nav-ico">📊</div><div class="nav-lbl">Dashboard</div></div>
-    <div class="nav-item" id="nav2" onclick="setTab(2)"><div class="nav-ico">🔁</div><div class="nav-lbl">Recurrentes</div></div>
-    <div class="nav-item" id="nav3" onclick="setTab(3)"><div class="nav-ico">⚙️</div><div class="nav-lbl">Más</div></div>
+    <div class="nav-item" id="nav2" onclick="setTab(2)"><div class="nav-ico">⚙️</div><div class="nav-lbl">Más</div></div>
   </div>
 </div>
 
@@ -555,7 +571,7 @@ function getMovsPeriod(){
 
 // ── RENDER ────────────────────────────────────────────────────────
 function renderML(){document.getElementById('mlbl').textContent=MESES[S.month-1]+' '+S.year}
-function renderContent(){if(S.tab===0)renderTab0();else if(S.tab===1)renderTab1();else if(S.tab===2)renderTab2();else renderTab3();}
+function renderContent(){if(S.tab===0)renderTab0();else if(S.tab===1)renderTab1();else renderTabMas();}
 
 // ── TAB 0: PRINCIPAL ──────────────────────────────────────────────
 function renderTab0(){
@@ -657,19 +673,7 @@ function renderTab1(){
     h+=`<div class="progress-card"><div class="prog-head"><span class="prog-ttl">Meta de ahorro</span><span class="prog-vals">${fU(bal)} / ${fU(gUYU)}</span></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div><div class="prog-pct">${pct}% alcanzado este mes</div></div>`;
   }
 
-  // Mini stats (solo mes)
-  h+=buildMiniStats();
-
-  // Summary
-  h+=`<div class="chart-card"><div class="chart-title">Resumen · ${esc(pLabel)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div style="background:var(--grnl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--grn);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ingresos</div><div style="font-size:16px;font-weight:700;color:var(--grn)">${fU(ing)}</div></div>
-    <div style="background:var(--redl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Gastos</div><div style="font-size:16px;font-weight:700;color:var(--red)">${fU(egr)}</div></div>
-  </div></div>`;
-
-  // Heatmap calendario (solo mes)
-  h+=buildHeatmap();
-
-  // Cat breakdown
+  // 1. Gastos por categoría (PRIMERO)
   const catT={};movs.filter(m=>m.tipo==='EGRESO').forEach(m=>{catT[m.categoria]=(catT[m.categoria]||0)+parseFloat(m.monto||0)});
   const catArr=Object.entries(catT).sort((a,b)=>b[1]-a[1]);
   if(catArr.length){
@@ -680,20 +684,16 @@ function renderTab1(){
     h+=`</div>`;
   }
 
-  // Presupuesto
-  const budgetCats=Object.entries(S.budgets).filter(([cat,bud])=>bud>0);
-  if(budgetCats.length){
-    h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Presupuesto por categoría</div>`;
-    budgetCats.forEach(([cat,bud])=>{
-      const actual=catT[cat]||0;
-      const pct=Math.min(100,Math.round(actual/bud*100));
-      const cls=pct>=100?'over':pct>=80?'warn':'ok';
-      h+=`<div class="budget-row"><span class="budget-name">${ICO[cat]||''} ${esc(cat)}</span><div class="budget-track"><div class="budget-fill ${cls}" style="width:${pct}%"></div></div><span class="budget-pct ${cls}">${pct}%</span></div>`;
-    });
-    h+=`</div>`;
-  }
+  // 2. Resumen del mes
+  h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Resumen · ${esc(pLabel)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="background:var(--grnl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--grn);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ingresos</div><div style="font-size:16px;font-weight:700;color:var(--grn)">${fU(ing)}</div></div>
+    <div style="background:var(--redl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Gastos</div><div style="font-size:16px;font-weight:700;color:var(--red)">${fU(egr)}</div></div>
+  </div></div>`;
 
-  // Trend - barras dobles (ingreso/egreso) + balance arriba
+  // 3. Mini stats (Promedio diario + vs Mes anterior) — solo mes
+  h+=buildMiniStats();
+
+  // 4. Trend - barras dobles
   const trend=buildTrendData();
   const trendTitle={semana:'Últimas 4 semanas',mes:'Últimos 4 meses',trimestre:'Últimos 4 trimestres',anual:'Últimos 4 años'}[S.period];
   if(trend&&trend.length){
@@ -705,8 +705,53 @@ function renderTab1(){
     </div>`;
   }
 
+  // 5. Heatmap (último, chico, solo mes)
+  h+=buildHeatmap();
+
   h+='<div style="height:8px"></div>';
   document.getElementById('tc').innerHTML=h;
+
+  // Prefetch missing months in background → re-render cuando llega data nueva
+  schedulePrefetch();
+}
+
+// Prefetch de meses faltantes para que la tendencia, mini-stats y heatmap usen datos reales
+async function prefetchPeriod(){
+  if(!S.url)return false;
+  const needed=new Set();
+  // vs Mes anterior (mini-stat) → prev month
+  let pm=S.month-1,py=S.year;if(pm<1){pm=12;py--;}
+  needed.add(py+'-'+pm);
+  // Trend por periodo
+  if(S.period==='mes'){
+    for(let i=1;i<=3;i++){let mo=S.month-i,y=S.year;while(mo<1){mo+=12;y--;}needed.add(y+'-'+mo);}
+  } else if(S.period==='trimestre'){
+    for(let i=1;i<=11;i++){let mo=S.month-i,y=S.year;while(mo<1){mo+=12;y--;}needed.add(y+'-'+mo);}
+  } else if(S.period==='anual'){
+    for(let mo=1;mo<=12;mo++){if(mo!==S.month)needed.add(S.year+'-'+mo);}
+  } else if(S.period==='semana'){
+    needed.add(py+'-'+pm);
+  }
+  const toFetch=[];
+  needed.forEach(k=>{const[y,m]=k.split('-').map(Number);if(!lc(m,y))toFetch.push({m,y});});
+  if(!toFetch.length)return false;
+  let anyChanged=false;
+  for(const{m,y}of toFetch){
+    try{const r=await af({action:'get',month:m,year:y});if(r&&r.status==='ok'){sc(r.data||[],m,y);anyChanged=true;}}catch(e){}
+  }
+  return anyChanged;
+}
+
+function schedulePrefetch(){
+  if(S._prefetching||!S.url)return;
+  const key=S.period+'-'+S.year+'-'+S.month;
+  if(S._prefetchedKey===key)return;
+  S._prefetching=true;
+  prefetchPeriod().then(changed=>{
+    S._prefetching=false;
+    S._prefetchedKey=key;
+    if(changed&&S.tab===1)renderTab1();
+  });
 }
 
 function buildMiniStats(){
@@ -874,40 +919,36 @@ function buildBars(data){
   return svg;
 }
 
-// ── TAB 2: RECURRENTES ────────────────────────────────────────────
-function renderTab2(){
-  let h=`<div class="rec-list">
-    <button class="add-rec-btn" onclick="openAddRec()">+ Nuevo gasto recurrente</button>`;
+// Recurrentes list helper - usado dentro de Más (renderTabMas)
+function buildRecList(){
+  let h=`<button class="add-rec-btn" onclick="openAddRec()">+ Nuevo gasto recurrente</button>`;
   if(!S.recurrentes.length){
-    h+=`<div class="empty"><div class="empty-ico">🔁</div><div class="empty-ttl">Sin recurrentes</div><div class="empty-sub">Agregá tus gastos fijos:<br>alquiler, Box, suscripciones…</div></div>`;
-  } else {
-    const done=getRecDone();
-    S.recurrentes.forEach(r=>{
-      const isDone=done.includes(r.id);
-      h+=`<div class="rec-card">
-        <div class="rec-card-main">
-          <div class="rec-card-ico">${ICO[r.categoria]||'📌'}</div>
-          <div class="rec-card-info">
-            <div class="rec-card-name">${esc(r.name)}</div>
-            <div class="rec-card-sub">${esc(r.categoria)} · ${esc(r.metodo)}${r.dayOfMonth?' · Día '+r.dayOfMonth:''}</div>
-          </div>
-          <div class="rec-card-right">
-            <div class="rec-card-amt">${fU(r.amount)}</div>
-            <div class="rec-card-day" style="color:${isDone?'var(--grn)':'var(--t3)'}">${isDone?'✓ Registrado este mes':'Pendiente este mes'}</div>
-          </div>
-        </div>
-        <div class="rec-card-actions">
-          <button class="rec-card-act" onclick="${isDone?'':('addRecItem(\''+esc(r.id)+'\')')}" style="${isDone?'color:var(--grn)':''}">
-            ${isDone?'✓ Ya agregado':'+ Agregar ahora'}
-          </button>
-          <button class="rec-card-act" onclick="openEditRec('${esc(r.id)}')">✏ Editar</button>
-          <button class="rec-card-act del" onclick="askDelRecById('${esc(r.id)}')">🗑</button>
-        </div>
-      </div>`;
-    });
+    h+=`<div class="empty" style="padding:24px 12px"><div class="empty-ico">🔁</div><div class="empty-ttl">Sin recurrentes</div><div class="empty-sub">Alquiler, Box, suscripciones…</div></div>`;
+    return h;
   }
-  h+='<div style="height:8px"></div></div>';
-  document.getElementById('tc').innerHTML=h;
+  const done=getRecDone();
+  S.recurrentes.forEach(r=>{
+    const isDone=done.includes(r.id);
+    h+=`<div class="rec-card">
+      <div class="rec-card-main">
+        <div class="rec-card-ico">${ICO[r.categoria]||'📌'}</div>
+        <div class="rec-card-info">
+          <div class="rec-card-name">${esc(r.name)}</div>
+          <div class="rec-card-sub">${esc(r.categoria)} · ${esc(r.metodo)}${r.dayOfMonth?' · Día '+r.dayOfMonth:''}</div>
+        </div>
+        <div class="rec-card-right">
+          <div class="rec-card-amt">${fU(r.amount)}</div>
+          <div class="rec-card-day" style="color:${isDone?'var(--grn)':'var(--t3)'}">${isDone?'✓ Este mes':'Pendiente'}</div>
+        </div>
+      </div>
+      <div class="rec-card-actions">
+        <button class="rec-card-act" onclick="${isDone?'':('addRecItem(\''+esc(r.id)+'\')')}" style="${isDone?'color:var(--grn)':''}">${isDone?'✓ Ya agregado':'+ Agregar ahora'}</button>
+        <button class="rec-card-act" onclick="openEditRec('${esc(r.id)}')">✏ Editar</button>
+        <button class="rec-card-act del" onclick="askDelRecById('${esc(r.id)}')">🗑</button>
+      </div>
+    </div>`;
+  });
+  return h;
 }
 
 // Rec form
@@ -950,8 +991,12 @@ function rfRenderCatGrid(){
 function rfSetCat(k){S.rfCat=k;rfRenderCatGrid()}
 function rfSetMet(m){S.rfMet=m;const map={Débito:'rf-mc-deb',Efectivo:'rf-mc-ef'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
 
-// ── TAB 3: MÁS ────────────────────────────────────────────────────
-function renderTab3(){
+// ── TAB MÁS ────────────────────────────────────────────────────
+function renderTabMas(){
+  const opens=JSON.parse(localStorage.getItem('jfin_opens')||'{}');
+  const oc=id=>opens[id]?' open':'';
+
+  // Portfolio (siempre visible arriba)
   const totUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*parseFloat(iv.curPrice||0))*S.usdRate,0);
   const costUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*parseFloat(iv.buyPrice||0))*S.usdRate,0);
   const pl=totUYU-costUYU;const plP=costUYU>0?((pl/costUYU)*100).toFixed(1):0;
@@ -972,37 +1017,66 @@ function renderTab3(){
     </div></div>`;
   });
 
-  // Presupuesto settings
-  h+=`<div class="sec-div">Presupuesto por categoría</div>
-  <div class="budget-settings">`;
+  // Recurrentes (colapsable)
+  const recCnt=S.recurrentes.length;
+  h+=`<div class="collapse${oc('recs')}" id="col-recs">
+    <div class="collapse-hdr" onclick="toggleCollapse('recs')">
+      <div class="collapse-title">🔁 Recurrentes ${recCnt?`<span class="collapse-count">${recCnt}</span>`:''}</div>
+      <span class="collapse-chev">▾</span>
+    </div>
+    <div class="collapse-body">${buildRecList()}</div>
+  </div>`;
+
+  // Presupuesto por categoría (colapsable)
+  const budCnt=Object.values(S.budgets).filter(v=>v>0).length;
+  let budBody='';
   CAT_E.forEach(c=>{
     const bud=S.budgets[c.k]||'';
-    h+=`<div class="bset-row"><span class="bset-ico">${c.i}</span><span class="bset-name">${esc(c.k)}</span><input type="number" class="bset-inp" value="${bud}" placeholder="0" inputmode="numeric" onchange="setBudget('${esc(c.k)}',this.value)"><span class="bset-cur">$U/mes</span></div>`;
+    budBody+=`<div class="bset-row"><span class="bset-ico">${c.i}</span><span class="bset-name">${esc(c.k)}</span><input type="number" class="bset-inp" value="${bud}" placeholder="0" inputmode="numeric" onchange="setBudget('${esc(c.k)}',this.value)"><span class="bset-cur">$U/mes</span></div>`;
   });
-  h+=`</div>`;
+  h+=`<div class="collapse${oc('bud')}" id="col-bud">
+    <div class="collapse-hdr" onclick="toggleCollapse('bud')">
+      <div class="collapse-title">💰 Presupuesto por categoría ${budCnt?`<span class="collapse-count">${budCnt}</span>`:''}</div>
+      <span class="collapse-chev">▾</span>
+    </div>
+    <div class="collapse-body" style="padding:8px 14px 14px">${budBody}</div>
+  </div>`;
 
-  // Config
-  h+=`<div class="sec-div">Configuración</div>
-  <div class="conf-section">
-    <div class="conf-block"><div class="conf-lbl">Google Apps Script URL</div><input class="conf-inp" type="url" id="c-url" value="${esc(S.url)}" placeholder="https://script.google.com/macros/s/…"><div class="stat-row"><div class="stat-dot ${S.url?'ok':'off'}"></div><span class="stat-txt">${S.url?'Conectado':'Sin conectar'}</span><button class="conf-btn" style="margin-left:auto;padding:8px 14px;font-size:12px" onclick="saveUrl()">Guardar</button></div></div>
-    <div class="conf-block"><div class="conf-lbl">Tipo de cambio (auto-actualiza)</div><div class="conf-row-i"><span class="conf-unit">1 USD =</span><input class="conf-inp-s" type="number" id="c-usd" value="${S.usdRate}" placeholder="43"><span class="conf-unit">UYU</span><button class="conf-btn" onclick="saveRate()">OK</button></div></div>
-    <div class="conf-block"><div class="conf-lbl">Meta de ahorro mensual</div><div class="conf-row-i"><input class="conf-inp-s" type="number" id="c-goal" value="${S.goal.amt||''}" placeholder="0"><select class="conf-inp-s" id="c-gcur" style="max-width:80px;cursor:pointer"><option ${S.goal.cur==='UYU'?'selected':''}>UYU</option><option ${S.goal.cur==='USD'?'selected':''}>USD</option></select><button class="conf-btn" onclick="saveGoal()">OK</button></div></div>
+  // Config (colapsable)
+  h+=`<div class="collapse${oc('cfg')}" id="col-cfg">
+    <div class="collapse-hdr" onclick="toggleCollapse('cfg')">
+      <div class="collapse-title">⚙️ Configuración</div>
+      <span class="collapse-chev">▾</span>
+    </div>
+    <div class="collapse-body" style="padding:12px 14px 14px">
+      <div class="conf-block"><div class="conf-lbl">Google Apps Script URL</div><input class="conf-inp" type="url" id="c-url" value="${esc(S.url)}" placeholder="https://script.google.com/macros/s/…"><div class="stat-row"><div class="stat-dot ${S.url?'ok':'off'}"></div><span class="stat-txt">${S.url?'Conectado':'Sin conectar'}</span><button class="conf-btn" style="margin-left:auto;padding:8px 14px;font-size:12px" onclick="saveUrl()">Guardar</button></div></div>
+      <div class="conf-block"><div class="conf-lbl">Tipo de cambio (auto-actualiza)</div><div class="conf-row-i"><span class="conf-unit">1 USD =</span><input class="conf-inp-s" type="number" id="c-usd" value="${S.usdRate}" placeholder="43"><span class="conf-unit">UYU</span><button class="conf-btn" onclick="saveRate()">OK</button></div></div>
+      <div class="conf-block"><div class="conf-lbl">Meta de ahorro mensual</div><div class="conf-row-i"><input class="conf-inp-s" type="number" id="c-goal" value="${S.goal.amt||''}" placeholder="0"><select class="conf-inp-s" id="c-gcur" style="max-width:80px;cursor:pointer"><option ${S.goal.cur==='UYU'?'selected':''}>UYU</option><option ${S.goal.cur==='USD'?'selected':''}>USD</option></select><button class="conf-btn" onclick="saveGoal()">OK</button></div></div>
+    </div>
   </div><div style="height:8px"></div>`;
 
   document.getElementById('tc').innerHTML=h;
 }
 
-function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;saveInvs();renderTab3();}}
+function toggleCollapse(id){
+  const el=document.getElementById('col-'+id);if(!el)return;
+  el.classList.toggle('open');
+  const opens=JSON.parse(localStorage.getItem('jfin_opens')||'{}');
+  opens[id]=el.classList.contains('open');
+  try{localStorage.setItem('jfin_opens',JSON.stringify(opens));}catch(e){}
+}
+
+function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;saveInvs();renderTabMas();}}
 function setBudget(cat,v){const n=parseFloat(v)||0;if(n>0)S.budgets[cat]=n;else delete S.budgets[cat];saveBudgets();}
-function saveUrl(){const u=document.getElementById('c-url').value.trim();S.url=u;localStorage.setItem('jfin_url',u);toast(u?'URL guardada ✓':'URL eliminada');loadMovs();renderTab3();}
-function saveRate(){const r=parseFloat(document.getElementById('c-usd').value)||43;S.usdRate=r;localStorage.setItem('jfin_usd',r);toast('Tipo de cambio actualizado');renderTab3();}
-function saveGoal(){const a=parseFloat(document.getElementById('c-goal').value)||0,c=document.getElementById('c-gcur').value;S.goal={amt:a,cur:c};localStorage.setItem('jfin_goal',a);localStorage.setItem('jfin_gcur',c);toast('Meta guardada');renderTab3();}
+function saveUrl(){const u=document.getElementById('c-url').value.trim();S.url=u;localStorage.setItem('jfin_url',u);toast(u?'URL guardada ✓':'URL eliminada');loadMovs();renderTabMas();}
+function saveRate(){const r=parseFloat(document.getElementById('c-usd').value)||43;S.usdRate=r;localStorage.setItem('jfin_usd',r);toast('Tipo de cambio actualizado');renderTabMas();}
+function saveGoal(){const a=parseFloat(document.getElementById('c-goal').value)||0,c=document.getElementById('c-gcur').value;S.goal={amt:a,cur:c};localStorage.setItem('jfin_goal',a);localStorage.setItem('jfin_gcur',c);toast('Meta guardada');renderTabMas();}
 
 // ── NAV ───────────────────────────────────────────────────────────
-function prevM(){S.month--;if(S.month<1){S.month=12;S.year--;}renderML();loadMovs();}
-function nextM(){S.month++;if(S.month>12){S.month=1;S.year++;}renderML();loadMovs();}
+function prevM(){S.month--;if(S.month<1){S.month=12;S.year--;}S._prefetchedKey=null;renderML();loadMovs();}
+function nextM(){S.month++;if(S.month>12){S.month=1;S.year++;}S._prefetchedKey=null;renderML();loadMovs();}
 function setTab(t){
-  S.tab=t;[0,1,2,3].forEach(i=>{document.getElementById('nav'+i).className='nav-item'+(t===i?' a':'')});
+  S.tab=t;[0,1,2].forEach(i=>{const el=document.getElementById('nav'+i);if(el)el.className='nav-item'+(t===i?' a':'')});
   document.getElementById('period-bar').className='period-bar'+(t===1?' vis':'');
   renderContent();
 }
