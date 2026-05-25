@@ -162,6 +162,28 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .leg-pct{font-size:11px;font-weight:600;color:var(--t1);min-width:28px;text-align:right}
 .trend-labels{display:flex;padding:0 6px;margin-top:4px}
 .trend-lbl{font-size:10px;color:var(--t3);flex:1;text-align:center}
+.bar-legend{display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:10px;color:var(--t3);font-weight:500}
+.bar-legend span{display:inline-flex;align-items:center;gap:5px}
+.bar-legend i{display:inline-block;width:9px;height:9px;border-radius:2px}
+
+/* MINI STATS */
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 14px 0}
+.stat-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rs);padding:11px 13px;box-shadow:var(--sh);min-width:0}
+.stat-lbl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-val{font-size:18px;font-weight:700;color:var(--t1);letter-spacing:-.4px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-val.up{color:var(--grn)}.stat-val.dn{color:var(--red)}
+.stat-sub{font-size:10px;color:var(--t3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* HEATMAP CALENDARIO */
+.heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px}
+.hm-hdr{font-size:9px;color:var(--t3);text-align:center;font-weight:600;letter-spacing:.5px;padding-bottom:2px}
+.hm-cell{aspect-ratio:1;border-radius:5px;background:var(--bg);display:flex;align-items:flex-end;justify-content:flex-end;padding:3px 4px;font-size:9px;color:var(--t3);font-weight:600;line-height:1;border:1px solid transparent;transition:transform .12s}
+.hm-cell.hm-spent{color:var(--t2)}
+.hm-cell.hm-today{border-color:var(--blue)}
+.hm-cell.hm-empty{visibility:hidden}
+.hm-legend{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:10px;font-size:9px;color:var(--t3)}
+.hm-leg-grad{display:flex;gap:3px}
+.hm-leg-grad i{display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--brd)}
 
 /* BUDGET SECTION IN DASHBOARD */
 .budget-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -635,11 +657,17 @@ function renderTab1(){
     h+=`<div class="progress-card"><div class="prog-head"><span class="prog-ttl">Meta de ahorro</span><span class="prog-vals">${fU(bal)} / ${fU(gUYU)}</span></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div><div class="prog-pct">${pct}% alcanzado este mes</div></div>`;
   }
 
+  // Mini stats (solo mes)
+  h+=buildMiniStats();
+
   // Summary
   h+=`<div class="chart-card"><div class="chart-title">Resumen · ${esc(pLabel)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div style="background:var(--grnl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--grn);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ingresos</div><div style="font-size:16px;font-weight:700;color:var(--grn)">${fU(ing)}</div></div>
     <div style="background:var(--redl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Gastos</div><div style="font-size:16px;font-weight:700;color:var(--red)">${fU(egr)}</div></div>
   </div></div>`;
+
+  // Heatmap calendario (solo mes)
+  h+=buildHeatmap();
 
   // Cat breakdown
   const catT={};movs.filter(m=>m.tipo==='EGRESO').forEach(m=>{catT[m.categoria]=(catT[m.categoria]||0)+parseFloat(m.monto||0)});
@@ -665,18 +693,100 @@ function renderTab1(){
     h+=`</div>`;
   }
 
-  // Trend - adaptable to period
+  // Trend - barras dobles (ingreso/egreso) + balance arriba
   const trend=buildTrendData();
-  const trendTitle={semana:'Tendencia 4 semanas',mes:'Tendencia 4 meses',trimestre:'Tendencia 4 trimestres',anual:'Tendencia 4 años'}[S.period];
+  const trendTitle={semana:'Últimas 4 semanas',mes:'Últimos 4 meses',trimestre:'Últimos 4 trimestres',anual:'Últimos 4 años'}[S.period];
   if(trend&&trend.length){
-    h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">${trendTitle}</div>${buildLine(trend)}<div class="trend-labels">${trend.map(d=>`<span class="trend-lbl">${esc(d.label)}</span>`).join('')}</div></div>`;
+    h+=`<div class="chart-card" style="margin-top:12px">
+      <div class="chart-title">${trendTitle}</div>
+      ${buildBars(trend)}
+      <div class="trend-labels">${trend.map(d=>`<span class="trend-lbl">${esc(d.label)}</span>`).join('')}</div>
+      <div class="bar-legend"><span><i style="background:#16a34a"></i>Ingreso</span><span><i style="background:#dc2626"></i>Egreso</span></div>
+    </div>`;
   }
 
   h+='<div style="height:8px"></div>';
   document.getElementById('tc').innerHTML=h;
 }
 
-function sumBal(arr){return arr.reduce((a,mv)=>a+(mv.tipo==='INGRESO'?1:-1)*parseFloat(mv.monto||0),0);}
+function buildMiniStats(){
+  if(S.period!=='mes')return'';
+  const ing=S.movs.filter(m=>m.tipo==='INGRESO').reduce((a,m)=>a+parseFloat(m.monto||0),0);
+  const egr=S.movs.filter(m=>m.tipo==='EGRESO').reduce((a,m)=>a+parseFloat(m.monto||0),0);
+  const bal=ing-egr;
+  // Promedio diario de egresos
+  const today=new Date();
+  const isCur=today.getFullYear()===S.year&&today.getMonth()+1===S.month;
+  const daysInMonth=new Date(S.year,S.month,0).getDate();
+  const days=isCur?today.getDate():daysInMonth;
+  const promDay=days>0?Math.round(egr/days):0;
+  // vs Mes anterior
+  let pm=S.month-1,py=S.year;if(pm<1){pm=12;py--;}
+  const prev=lc(pm,py)||[];
+  const prevR=sumIE(prev);
+  let pctTxt='—',pctCls='';
+  if(prev.length===0)pctTxt='Sin datos';
+  else if(prevR.bal===0)pctTxt=bal>=0?'+∞':'−∞';
+  else{
+    const pct=Math.round(((bal-prevR.bal)/Math.abs(prevR.bal))*100);
+    pctTxt=(pct>=0?'↑ +':'↓ ')+pct+'%';
+    pctCls=pct>=0?'up':'dn';
+  }
+  return`<div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-lbl">Promedio diario</div>
+      <div class="stat-val">${fU(promDay)}</div>
+      <div class="stat-sub">${isCur?'Día '+days+' del mes':'Mes cerrado · '+daysInMonth+' días'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">vs Mes anterior</div>
+      <div class="stat-val ${pctCls}">${pctTxt}</div>
+      <div class="stat-sub">${MESES[pm-1].slice(0,3)} '${String(py).slice(2)}: ${fU(prevR.bal)}</div>
+    </div>
+  </div>`;
+}
+
+function buildHeatmap(){
+  if(S.period!=='mes')return'';
+  const year=S.year,month=S.month;
+  const dayTotals={};
+  S.movs.filter(m=>m.tipo==='EGRESO').forEach(m=>{
+    const d=parseInt(m.fecha.split('-')[2]);
+    dayTotals[d]=(dayTotals[d]||0)+parseFloat(m.monto||0);
+  });
+  const daysInMonth=new Date(year,month,0).getDate();
+  const firstDay=new Date(year,month-1,1).getDay();
+  const startOffset=firstDay===0?6:firstDay-1;
+  const totals=Object.values(dayTotals);
+  if(!totals.length)return'';
+  const maxAmt=Math.max(...totals);
+  const today=new Date();
+  const isCur=today.getFullYear()===year&&today.getMonth()+1===month;
+  const todayDay=isCur?today.getDate():-1;
+  let cells='';
+  ['L','M','M','J','V','S','D'].forEach(d=>cells+=`<div class="hm-hdr">${d}</div>`);
+  for(let i=0;i<startOffset;i++)cells+=`<div class="hm-cell hm-empty"></div>`;
+  for(let day=1;day<=daysInMonth;day++){
+    const amt=dayTotals[day]||0;
+    const intensity=amt>0?Math.min(1,amt/maxAmt):0;
+    const alpha=amt>0?(0.18+intensity*0.55):0;
+    const bg=amt>0?`background:rgba(220,38,38,${alpha.toFixed(2)})`:'';
+    const txtCol=intensity>0.55?'color:#fff':'';
+    const todayCls=day===todayDay?' hm-today':'';
+    cells+=`<div class="hm-cell${amt>0?' hm-spent':''}${todayCls}" style="${bg};${txtCol}">${day}</div>`;
+  }
+  return`<div class="chart-card" style="margin-top:12px">
+    <div class="chart-title">Mapa diario de gastos</div>
+    <div class="heatmap">${cells}</div>
+    <div class="hm-legend"><span>Sin gasto</span><div class="hm-leg-grad"><i style="background:var(--bg)"></i><i style="background:rgba(220,38,38,.25)"></i><i style="background:rgba(220,38,38,.5)"></i><i style="background:rgba(220,38,38,.75)"></i></div><span>Más gasto</span></div>
+  </div>`;
+}
+
+function sumIE(arr){
+  let ing=0,egr=0;
+  arr.forEach(mv=>{const m=parseFloat(mv.monto||0);if(mv.tipo==='INGRESO')ing+=m;else egr+=m;});
+  return{ing,egr,bal:ing-egr};
+}
 function dataFor(mo,y){return(mo===S.month&&y===S.year)?S.movs:(lc(mo,y)||[]);}
 function buildTrendData(){
   if(S.period==='semana'){
@@ -690,7 +800,8 @@ function buildTrendData(){
       const sS=start.getFullYear()+'-'+p2(start.getMonth()+1)+'-'+p2(start.getDate());
       const eS=end.getFullYear()+'-'+p2(end.getMonth()+1)+'-'+p2(end.getDate());
       const wMovs=allMovs.filter(m=>m.fecha>=sS&&m.fecha<=eS);
-      out.push({label:start.getDate()+'/'+(start.getMonth()+1),bal:sumBal(wMovs)});
+      const r=sumIE(wMovs);
+      out.push({label:start.getDate()+'/'+(start.getMonth()+1),ing:r.ing,egr:r.egr,bal:r.bal});
     }
     return out;
   }
@@ -698,22 +809,24 @@ function buildTrendData(){
     const out=[];
     for(let i=3;i>=0;i--){
       let mo=S.month-i,y=S.year;if(mo<=0){mo+=12;y--;}
-      out.push({label:shortM(mo,y),bal:sumBal(dataFor(mo,y))});
+      const r=sumIE(dataFor(mo,y));
+      out.push({label:shortM(mo,y),ing:r.ing,egr:r.egr,bal:r.bal});
     }
     return out;
   }
   if(S.period==='trimestre'){
     const out=[];
     for(let t=3;t>=0;t--){
-      let b=0,endMo=S.month-t*3,endY=S.year;
+      let ing=0,egr=0,endMo=S.month-t*3,endY=S.year;
       while(endMo<=0){endMo+=12;endY--;}
       for(let m=0;m<3;m++){
         let mo=endMo-m,y=endY;
         while(mo<=0){mo+=12;y--;}
-        b+=sumBal(dataFor(mo,y));
+        const r=sumIE(dataFor(mo,y));
+        ing+=r.ing;egr+=r.egr;
       }
       const q=Math.ceil(endMo/3);
-      out.push({label:'T'+q+" '"+String(endY).slice(2),bal:b});
+      out.push({label:'T'+q+" '"+String(endY).slice(2),ing,egr,bal:ing-egr});
     }
     return out;
   }
@@ -721,9 +834,9 @@ function buildTrendData(){
     const out=[];
     for(let i=3;i>=0;i--){
       const y=S.year-i;
-      let b=0;
-      for(let mo=1;mo<=12;mo++) b+=sumBal(dataFor(mo,y));
-      out.push({label:String(y),bal:b});
+      let ing=0,egr=0;
+      for(let mo=1;mo<=12;mo++){const r=sumIE(dataFor(mo,y));ing+=r.ing;egr+=r.egr;}
+      out.push({label:String(y),ing,egr,bal:ing-egr});
     }
     return out;
   }
@@ -734,13 +847,31 @@ function buildDonut(entries,total){
   entries.forEach(([cat,amt])=>{const frac=total>0?amt/total:0;const dash=frac*circ;paths+=`<circle r="${r}" cx="${cx}" cy="${cy}" fill="none" stroke="${CAT_COL[cat]||'#9ca3af'}" stroke-width="${sw}" stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;offset+=dash;});
   return`<svg width="130" height="130" viewBox="0 0 130 130" style="flex-shrink:0"><circle r="${r}" cx="${cx}" cy="${cy}" fill="none" stroke="var(--bg)" stroke-width="${sw}"/>${paths}<text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="9" fill="var(--t3)" font-family="Inter">Total</text><text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--t1)" font-family="Inter">${fU(total)}</text></svg>`;
 }
-function buildLine(m4){
-  const vals=m4.map(d=>d.bal),mn=Math.min(...vals),mx=Math.max(...vals),range=mx-mn||1;
-  const W=260,H=70,px=8;
-  const pts=m4.map((d,i)=>({x:px+(i/(m4.length-1||1))*(W-px*2),y:H-px-((d.bal-mn)/range)*(H-px*2),bal:d.bal}));
-  const pline=pts.map(p=>`${p.x},${p.y}`).join(' ');
-  const area=`${pts[0].x},${H} `+pts.map(p=>`${p.x},${p.y}`).join(' ')+` ${pts[pts.length-1].x},${H}`;
-  return`<svg width="100%" viewBox="0 0 276 ${H+16}" style="overflow:visible"><defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity=".12"/><stop offset="100%" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs><polygon points="${area}" fill="url(#lg)"/><polyline points="${pline}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="var(--surf)" stroke="#2563eb" stroke-width="2"/><text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="var(--t2)" font-family="Inter">${p.bal>=0?'+':''}${fU(p.bal)}</text>`).join('')}</svg>`;
+function fmtK(n){const a=Math.abs(n);if(a>=1000)return(n>=0?'':'-')+Math.round(a/1000)+'k';return(n>=0?'':'-')+Math.round(a);}
+function buildBars(data){
+  const W=276,H=120,padT=24,padB=22,padX=10;
+  const innerW=W-padX*2;
+  const slotW=innerW/data.length;
+  const barGroupW=slotW*0.62;
+  const barW=(barGroupW-2)/2;
+  const maxVal=Math.max(1,...data.flatMap(d=>[d.ing,d.egr]));
+  const chartH=H-padT-padB;
+  const yBase=padT+chartH;
+  let svg=`<svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible">`;
+  svg+=`<line x1="${padX}" y1="${yBase}" x2="${W-padX}" y2="${yBase}" stroke="var(--brd)" stroke-width="1"/>`;
+  data.forEach((d,i)=>{
+    const cx=padX+i*slotW+slotW/2;
+    const x0=cx-barGroupW/2;
+    const iH=Math.max((d.ing/maxVal)*chartH,d.ing>0?1.5:0);
+    const eH=Math.max((d.egr/maxVal)*chartH,d.egr>0?1.5:0);
+    svg+=`<rect x="${x0}" y="${yBase-iH}" width="${barW}" height="${iH}" fill="#16a34a" rx="2"/>`;
+    svg+=`<rect x="${x0+barW+2}" y="${yBase-eH}" width="${barW}" height="${eH}" fill="#dc2626" rx="2"/>`;
+    const balColor=d.bal>=0?'#16a34a':'#dc2626';
+    const balSign=d.bal>=0?'+':'';
+    svg+=`<text x="${cx}" y="${padT-8}" text-anchor="middle" font-size="11" font-weight="700" fill="${balColor}" font-family="Inter">${balSign}${fmtK(d.bal)}</text>`;
+  });
+  svg+=`</svg>`;
+  return svg;
 }
 
 // ── TAB 2: RECURRENTES ────────────────────────────────────────────
@@ -951,7 +1082,12 @@ function saveForm(){
 }
 
 function askDel(){S.pendDel=S.editId;S.pendDelRec=null;document.getElementById('conf').classList.add('open');}
-function quickDel(id){S.pendDel=id;S.pendDelRec=null;document.getElementById('conf').classList.add('open');}
+function quickDel(id){
+  const m=S.movs.find(x=>x.id===id);if(!m)return;
+  const f=mFrom(m.fecha);S.editOM=f.m;S.editOY=f.y;
+  S.pendDel=id;S.pendDelRec=null;
+  document.getElementById('conf').classList.add('open');
+}
 function closeConf(){document.getElementById('conf').classList.remove('open');S.pendDel=null;S.pendDelRec=null;}
 function doDelete(){
   const delMov=S.pendDel,delRec=S.pendDelRec;
