@@ -643,8 +643,6 @@ function renderTab1(){
   }
 
   // Presupuesto
-  const bEntries=Object.entries(S.budgets).filter(([,v])=>v>0&&catT[Object.keys(catT).find(k=>k===Object.keys(S.budgets).find(b=>b===Object.keys(S.budgets).find(x=>S.budgets[x]===v&&x===Object.keys(S.budgets).find(y=>y===Object.keys(catT).find(z=>z===Object.keys(S.budgets).find(a=>a===y&&a===Object.keys(S.budgets).find(b2=>b2===Object.keys(catT).find(c2=>c2===b2))))))))]);
-  // simpler approach:
   const budgetCats=Object.entries(S.budgets).filter(([cat,bud])=>bud>0);
   if(budgetCats.length){
     h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Presupuesto por categoría</div>`;
@@ -857,4 +855,55 @@ function renderFechaChips(){
 function setMet(m){S.met=m;const map={Débito:'mc-deb',Efectivo:'mc-ef',Transferencia:'mc-tr'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
 function npP(v){if(v==='.'&&S.npStr.includes('.'))return;if(S.npStr==='0'&&v!=='.')S.npStr=v;else S.npStr+=v;if(S.npStr.length>10)S.npStr=S.npStr.slice(0,10);renderAmtNum();}
 function npDel(){S.npStr=S.npStr.slice(0,-1);renderAmtNum()}
-function renderAmtNum(){const s=S.npStr||'';if(!s){document.getElementById('amt-num').textContent='0';return}const pts=s.split('.');document.getElementById('amt-num').textContent=parseInt(pts[0]||'0').toLocaleString('es-UY')+(pts.length>1?','+(pt
+function renderAmtNum(){const s=S.npStr||'';if(!s){document.getElementById('amt-num').textContent='0';return}const pts=s.split('.');document.getElementById('amt-num').textContent=parseInt(pts[0]||'0').toLocaleString('es-UY')+(pts.length>1?','+(pts[1]||''):'');}
+
+function saveForm(){
+  const amt=parseFloat(S.npStr)||0;
+  if(!amt||amt<=0){toast('Ingresá un monto');return}
+  if(!S.cat){toast('Elegí una categoría');return}
+  const fecha=getF();
+  const m={id:S.editId||(Date.now()+Math.random().toString(36).slice(2,5)),fecha,tipo:S.tipo,categoria:S.cat,motivo:document.getElementById('f-motivo').value.trim()||S.cat,monto:amt,moneda:'UYU',metodo:S.met,nota:document.getElementById('f-nota').value.trim()};
+  closeOv(null,'ov-form');
+  if(S.editId){
+    const{m:nm,y:ny}=mFrom(fecha);
+    if(nm!==S.month||ny!==S.year){S.movs=S.movs.filter(x=>x.id!==S.editId);sc(S.movs);}
+    apiUpd(m);toast('Actualizado ✓');
+  } else {
+    const{m:nm,y:ny}=mFrom(fecha);
+    if(nm===S.month&&ny===S.year){apiAdd(m);toast('Guardado ✓');}
+    else{const oc=lc(nm,ny)||[];oc.push(m);sc(oc,nm,ny);if(S.url){af({action:'add',...m,month:nm,year:ny});}toast('Guardado en '+MESES[nm-1]+' ✓');}
+  }
+}
+
+function askDel(){S.pendDel=S.editId;S.pendDelRec=null;document.getElementById('conf').classList.add('open');}
+function closeConf(){document.getElementById('conf').classList.remove('open');S.pendDel=null;S.pendDelRec=null;}
+function doDelete(){
+  const delMov=S.pendDel,delRec=S.pendDelRec;
+  document.getElementById('conf').classList.remove('open');
+  S.pendDel=null;S.pendDelRec=null;
+  if(delMov){closeOv(null,'ov-form');apiDel(delMov);toast('Eliminado');}
+  else if(delRec){
+    S.recurrentes=S.recurrentes.filter(x=>x.id!==delRec);
+    saveRecs();closeOv(null,'ov-rec');renderContent();toast('Recurrente eliminado');
+  }
+}
+
+let _tt;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2400);}
+
+// ── BOOT ──────────────────────────────────────────────────────────
+(function(){
+  renderML();
+  renderContent();
+  loadMovs();
+  fetchRate();
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      document.querySelectorAll('.ov.open').forEach(x=>x.classList.remove('open'));
+      closeConf();
+    }
+  });
+})();
+</script>
+</body>
+</html>
