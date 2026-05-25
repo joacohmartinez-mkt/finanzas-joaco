@@ -122,6 +122,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .mov-btns{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .mov-tog{background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:5px 8px;cursor:pointer;font-size:11px;color:var(--t2);font-family:'Inter',sans-serif;-webkit-user-select:none;user-select:none}
 .mov-edit{background:var(--bluel);border:1px solid #bfdbfe;border-radius:7px;padding:5px 8px;cursor:pointer;font-size:12px;color:var(--blue);font-family:'Inter',sans-serif;-webkit-user-select:none;user-select:none}
+.mov-del{background:var(--redl);border:1px solid #fecaca;border-radius:7px;padding:5px 8px;cursor:pointer;font-size:12px;color:var(--red);font-family:'Inter',sans-serif;-webkit-user-select:none;user-select:none}
 .mov-amt-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd)}
 .mov-amt{font-size:16px;font-weight:700}
 .mov-amt.i{color:var(--grn)}.mov-amt.e{color:var(--red)}
@@ -296,7 +297,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .cc-ok{padding:11px;border:none;border-radius:9px;background:var(--red);color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
 .toast{position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 12px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--t1);color:#fff;padding:9px 18px;border-radius:22px;font-size:13px;font-weight:500;opacity:0;transition:opacity .2s,transform .2s;z-index:60;white-space:nowrap;pointer-events:none;box-shadow:var(--sh2)}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-#dhidden{position:fixed;opacity:0;pointer-events:none;top:50%;left:50%;width:1px;height:1px}
 </style>
 </head>
 <body>
@@ -313,7 +313,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <div class="period-bar" id="period-bar">
     <button class="ps-btn" id="ps-sem" onclick="setPeriod('semana')">Semana</button>
     <button class="ps-btn a" id="ps-mes" onclick="setPeriod('mes')">Mes</button>
-    <button class="ps-btn" id="ps-tri" onclick="setPeriod('trimestre')">Trimestre</button>
+    <button class="ps-btn" id="ps-tri" onclick="setPeriod('trimestre')">Trim.</button>
+    <button class="ps-btn" id="ps-ano" onclick="setPeriod('anual')">Año</button>
   </div>
   <div class="tab-content" id="tc"></div>
   <div class="bot-nav">
@@ -357,16 +358,17 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <div class="chips">
           <div class="chip s" id="dc-h" onclick="setFecha('h')">Hoy</div>
           <div class="chip" id="dc-a" onclick="setFecha('a')">Ayer</div>
-          <div class="chip" id="dc-o" onclick="setFecha('o')">📅 Elegir</div>
+          <div class="chip" id="dc-o" style="position:relative;overflow:hidden">
+            <span id="dc-o-text">📅 Elegir</span>
+            <input type="date" id="dhidden" onchange="setFechaCustom(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;background:transparent;-webkit-appearance:none;color:transparent">
+          </div>
         </div>
-        <input type="date" id="dhidden" onchange="setFechaCustom(this.value)">
       </div>
       <div class="fg">
         <label class="fg-lbl">Método</label>
         <div class="chips">
           <div class="chip s" id="mc-deb" onclick="setMet('Débito')">💳 Débito</div>
           <div class="chip" id="mc-ef" onclick="setMet('Efectivo')">💵 Efectivo</div>
-          <div class="chip" id="mc-tr" onclick="setMet('Transferencia')">📱 Transferencia</div>
         </div>
       </div>
       <div class="fg"><label class="fg-lbl">Nota <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--t3)">(opcional)</span></label><input class="fi" type="text" id="f-nota" placeholder="Detalle extra…"></div>
@@ -405,7 +407,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <div class="chips">
           <div class="chip s" id="rf-mc-deb" onclick="rfSetMet('Débito')">💳 Débito</div>
           <div class="chip" id="rf-mc-ef" onclick="rfSetMet('Efectivo')">💵 Efectivo</div>
-          <div class="chip" id="rf-mc-tr" onclick="rfSetMet('Transferencia')">📱 Transferencia</div>
         </div>
       </div>
       <div class="fg">
@@ -434,7 +435,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 <script>
 // ── CONSTANTS ────────────────────────────────────────────────────
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const CAT_E=[{k:'Alimentación',i:'🛒'},{k:'Comida afuera',i:'🍽️'},{k:'Bebidas/Social',i:'🍷'},{k:'Transporte',i:'🚌'},{k:'Moto',i:'🏍️'},{k:'Fitness',i:'💪'},{k:'Salud',i:'🏥'},{k:'Vivienda',i:'🏠'},{k:'Apps/Suscripciones',i:'📱'},{k:'Regalos',i:'🎁'},{k:'Tecnología',i:'💻'},{k:'Proyectos',i:'🌿'},{k:'Cuidado personal',i:'✂️'},{k:'Varios',i:'📦'}];
+const CAT_E=[{k:'Alimentación',i:'🛒'},{k:'Comida afuera',i:'🍽️'},{k:'Bebidas/Social',i:'🍷'},{k:'Transporte',i:'🚌'},{k:'Moto',i:'🏍️'},{k:'Salud',i:'🏥'},{k:'Vivienda',i:'🏠'},{k:'Apps/Suscripciones',i:'📱'},{k:'Tecnología',i:'💻'},{k:'Cuidado personal',i:'✂️'},{k:'Varios',i:'📦'}];
 const CAT_I=[{k:'Sueldo Viatik',i:'💼'},{k:'Beats/BeatStars',i:'🎵'},{k:'Madreselva',i:'🌿'},{k:'Freelance web',i:'🖥️'},{k:'Inversiones',i:'📈'},{k:'Otros',i:'💰'}];
 const ICO={};[...CAT_E,...CAT_I].forEach(c=>ICO[c.k]=c.i);
 const CAT_COL={'Alimentación':'#16a34a','Comida afuera':'#ea580c','Bebidas/Social':'#9333ea','Transporte':'#2563eb','Moto':'#0891b2','Fitness':'#d97706','Salud':'#e11d48','Vivienda':'#7c3aed','Apps/Suscripciones':'#475569','Regalos':'#db2777','Tecnología':'#1d4ed8','Proyectos':'#059669','Cuidado personal':'#c2410c','Varios':'#9ca3af'};
@@ -519,6 +520,14 @@ async function apiDel(id){S.movs=S.movs.filter(x=>x.id!==id);sc(S.movs);renderCo
 function getMovsPeriod(){
   if(S.period==='mes')return S.movs;
   if(S.period==='semana'){const now=new Date(),day=now.getDay(),diff=now.getDate()-day+(day===0?-6:1);const mon=new Date(now.getFullYear(),now.getMonth(),diff);const monS=mon.getFullYear()+'-'+p2(mon.getMonth()+1)+'-'+p2(mon.getDate());return S.movs.filter(m=>m.fecha>=monS);}
+  if(S.period==='anual'){
+    let movs=[];
+    for(let mo=1;mo<=12;mo++){
+      if(mo===S.month) movs=movs.concat(S.movs);
+      else movs=movs.concat(lc(mo,S.year)||[]);
+    }
+    return movs;
+  }
   let movs=[...S.movs];for(let i=1;i<=2;i++){let mo=S.month-i,y=S.year;if(mo<=0){mo+=12;y--;}movs=movs.concat(lc(mo,y)||[]);}return movs;
 }
 
@@ -581,7 +590,7 @@ function renderTab0(){
     h+=`<div class="date-grp"><div class="date-hdr"><div class="date-day">${p2(day)}</div><div class="date-info"><div class="date-wd">${esc(wd)}</div><div class="date-mo">${esc(mo)}</div></div></div>`;
     groups[date].forEach(m=>{
       const c=m.tipo==='INGRESO'?'i':'e',s=m.tipo==='INGRESO'?'+':'-';
-      h+=`<div class="mov-item"><div class="mov-main"><div class="mov-ico ${c}">${ICO[m.categoria]||'📌'}</div><div class="mov-info"><div class="mov-motivo">${esc(m.motivo||m.categoria)}</div><div class="mov-meta"><span class="cat-tag">${esc(m.categoria)}</span><span class="mov-met">· ${esc(m.metodo||'')}</span></div></div><div class="mov-btns"><button class="mov-tog" onclick="toggleAmt('${esc(m.id)}')" id="tog-${esc(m.id)}">▼</button><button class="mov-edit" onclick="openEdit('${esc(m.id)}')">✏</button></div></div>
+      h+=`<div class="mov-item"><div class="mov-main"><div class="mov-ico ${c}">${ICO[m.categoria]||'📌'}</div><div class="mov-info"><div class="mov-motivo">${esc(m.motivo||m.categoria)}</div><div class="mov-meta"><span class="cat-tag">${esc(m.categoria)}</span><span class="mov-met">· ${esc(m.metodo||'')}</span></div></div><div class="mov-btns"><button class="mov-tog" onclick="toggleAmt('${esc(m.id)}')" id="tog-${esc(m.id)}">▼</button><button class="mov-edit" onclick="openEdit('${esc(m.id)}')">✏</button><button class="mov-del" onclick="quickDel('${esc(m.id)}')">🗑</button></div></div>
       <div id="amt-${esc(m.id)}" style="display:none"><div class="mov-amt-row"><span class="mov-amt ${c}">${s}${fU(m.monto)}</span><span class="mov-date">${m.fecha.slice(8)}/${m.fecha.slice(5,7)}</span></div>${m.nota?`<div class="mov-nota">${esc(m.nota)}</div>`:''}</div></div>`;
     });
     h+='</div>';
@@ -606,7 +615,8 @@ function addAllRec(){
 // ── TAB 1: DASHBOARD ──────────────────────────────────────────────
 function setPeriod(p){
   S.period=p;
-  ['sem','mes','tri'].forEach(x=>{const m={sem:'semana',mes:'mes',tri:'trimestre'};const el=document.getElementById('ps-'+x);if(el)el.className='ps-btn'+(m[x]===p?' a':'');});
+  const map={sem:'semana',mes:'mes',tri:'trimestre',ano:'anual'};
+  Object.keys(map).forEach(x=>{const el=document.getElementById('ps-'+x);if(el)el.className='ps-btn'+(map[x]===p?' a':'');});
   renderTab1();
 }
 
@@ -615,7 +625,7 @@ function renderTab1(){
   const ing=movs.filter(m=>m.tipo==='INGRESO').reduce((a,m)=>a+parseFloat(m.monto||0),0);
   const egr=movs.filter(m=>m.tipo==='EGRESO').reduce((a,m)=>a+parseFloat(m.monto||0),0);
   const bal=ing-egr;
-  const pLabel=S.period==='semana'?'esta semana':S.period==='trimestre'?'último trimestre':'este mes';
+  const pLabel=S.period==='semana'?'esta semana':S.period==='trimestre'?'último trimestre':S.period==='anual'?'este año':'este mes';
   let h='';
 
   // Meta
@@ -655,16 +665,70 @@ function renderTab1(){
     h+=`</div>`;
   }
 
-  // Trend
-  if(S.period!=='semana'){
-    const m4=[];for(let i=3;i>=0;i--){let mo=S.month-i,y=S.year;if(mo<=0){mo+=12;y--;}const data=lc(mo,y)||[];const b=data.reduce((a,mv)=>a+(mv.tipo==='INGRESO'?1:-1)*parseFloat(mv.monto||0),0);m4.push({label:shortM(mo,y),bal:b});}
-    h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Tendencia 4 meses</div>${buildLine(m4)}<div class="trend-labels">${m4.map(d=>`<span class="trend-lbl">${esc(d.label)}</span>`).join('')}</div></div>`;
+  // Trend - adaptable to period
+  const trend=buildTrendData();
+  const trendTitle={semana:'Tendencia 4 semanas',mes:'Tendencia 4 meses',trimestre:'Tendencia 4 trimestres',anual:'Tendencia 4 años'}[S.period];
+  if(trend&&trend.length){
+    h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">${trendTitle}</div>${buildLine(trend)}<div class="trend-labels">${trend.map(d=>`<span class="trend-lbl">${esc(d.label)}</span>`).join('')}</div></div>`;
   }
 
   h+='<div style="height:8px"></div>';
   document.getElementById('tc').innerHTML=h;
 }
 
+function sumBal(arr){return arr.reduce((a,mv)=>a+(mv.tipo==='INGRESO'?1:-1)*parseFloat(mv.monto||0),0);}
+function dataFor(mo,y){return(mo===S.month&&y===S.year)?S.movs:(lc(mo,y)||[]);}
+function buildTrendData(){
+  if(S.period==='semana'){
+    const out=[],now=new Date();
+    let allMovs=[...S.movs];
+    let pm=S.month-1,py=S.year;if(pm<1){pm=12;py--;}
+    allMovs=allMovs.concat(lc(pm,py)||[]);
+    for(let i=3;i>=0;i--){
+      const end=new Date(now);end.setDate(end.getDate()-i*7);
+      const start=new Date(end);start.setDate(start.getDate()-6);
+      const sS=start.getFullYear()+'-'+p2(start.getMonth()+1)+'-'+p2(start.getDate());
+      const eS=end.getFullYear()+'-'+p2(end.getMonth()+1)+'-'+p2(end.getDate());
+      const wMovs=allMovs.filter(m=>m.fecha>=sS&&m.fecha<=eS);
+      out.push({label:start.getDate()+'/'+(start.getMonth()+1),bal:sumBal(wMovs)});
+    }
+    return out;
+  }
+  if(S.period==='mes'){
+    const out=[];
+    for(let i=3;i>=0;i--){
+      let mo=S.month-i,y=S.year;if(mo<=0){mo+=12;y--;}
+      out.push({label:shortM(mo,y),bal:sumBal(dataFor(mo,y))});
+    }
+    return out;
+  }
+  if(S.period==='trimestre'){
+    const out=[];
+    for(let t=3;t>=0;t--){
+      let b=0,endMo=S.month-t*3,endY=S.year;
+      while(endMo<=0){endMo+=12;endY--;}
+      for(let m=0;m<3;m++){
+        let mo=endMo-m,y=endY;
+        while(mo<=0){mo+=12;y--;}
+        b+=sumBal(dataFor(mo,y));
+      }
+      const q=Math.ceil(endMo/3);
+      out.push({label:'T'+q+" '"+String(endY).slice(2),bal:b});
+    }
+    return out;
+  }
+  if(S.period==='anual'){
+    const out=[];
+    for(let i=3;i>=0;i--){
+      const y=S.year-i;
+      let b=0;
+      for(let mo=1;mo<=12;mo++) b+=sumBal(dataFor(mo,y));
+      out.push({label:String(y),bal:b});
+    }
+    return out;
+  }
+  return[];
+}
 function buildDonut(entries,total){
   const r=50,cx=65,cy=65,sw=13,circ=2*Math.PI*r;let offset=0,paths='';
   entries.forEach(([cat,amt])=>{const frac=total>0?amt/total:0;const dash=frac*circ;paths+=`<circle r="${r}" cx="${cx}" cy="${cy}" fill="none" stroke="${CAT_COL[cat]||'#9ca3af'}" stroke-width="${sw}" stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;offset+=dash;});
@@ -753,7 +817,7 @@ function rfRenderCatGrid(){
   document.getElementById('rf-catgrid').innerHTML=CAT_E.map(c=>`<div class="ccell${S.rfCat===c.k?' '+sc:''}" onclick="rfSetCat('${esc(c.k)}')"><span class="cico">${c.i}</span><span class="cname">${esc(c.k)}</span></div>`).join('');
 }
 function rfSetCat(k){S.rfCat=k;rfRenderCatGrid()}
-function rfSetMet(m){S.rfMet=m;const map={Débito:'rf-mc-deb',Efectivo:'rf-mc-ef',Transferencia:'rf-mc-tr'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
+function rfSetMet(m){S.rfMet=m;const map={Débito:'rf-mc-deb',Efectivo:'rf-mc-ef'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
 
 // ── TAB 3: MÁS ────────────────────────────────────────────────────
 function renderTab3(){
@@ -844,15 +908,26 @@ function renderCatGrid(){
   document.getElementById('catgrid').innerHTML=cats.map(c=>`<div class="ccell${S.cat===c.k?' '+sc:''}" onclick="setCat('${esc(c.k)}')"><span class="cico">${c.i}</span><span class="cname">${esc(c.k)}</span></div>`).join('');
 }
 function setCat(k){S.cat=k;renderCatGrid()}
-function setFecha(m){S.fmod=m;if(m==='o'){const inp=document.getElementById('dhidden');inp.value=S.fcust||todayS();inp.style.cssText='position:fixed;top:50%;left:50%;opacity:0;pointer-events:auto;width:1px;height:1px';inp.click();setTimeout(()=>{inp.style.pointerEvents='none'},200);}renderFechaChips();}
-function setFechaCustom(v){S.fcust=v;S.fmod='o';renderFechaChips()}
-function renderFechaChips(){
-  ['h','a','o'].forEach(d=>{const el=document.getElementById('dc-'+d);if(el)el.className='chip'+(S.fmod===d?' s':'')});
-  const oel=document.getElementById('dc-o');
-  if(S.fmod==='o'&&S.fcust){const[y,m,dd]=S.fcust.split('-').map(Number);if(oel)oel.textContent='📅 '+new Date(y,m-1,dd).toLocaleDateString('es-UY',{day:'numeric',month:'short'});}
-  else if(oel)oel.textContent='📅 Elegir';
+function setFecha(m){
+  S.fmod=m;
+  if(m==='o'){
+    const inp=document.getElementById('dhidden');
+    if(inp){inp.value=S.fcust||todayS();try{inp.showPicker&&inp.showPicker();}catch(e){}}
+  }
+  renderFechaChips();
 }
-function setMet(m){S.met=m;const map={Débito:'mc-deb',Efectivo:'mc-ef',Transferencia:'mc-tr'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
+function setFechaCustom(v){if(!v)return;S.fcust=v;S.fmod='o';renderFechaChips()}
+function renderFechaChips(){
+  ['h','a','o'].forEach(d=>{const el=document.getElementById('dc-'+d);if(el)el.className='chip'+(S.fmod===d?' s':'')+(d==='o'?'':'')});
+  const oel=document.getElementById('dc-o');
+  if(oel)oel.style.cssText='position:relative;overflow:hidden';
+  const oTxt=document.getElementById('dc-o-text');
+  if(S.fmod==='o'&&S.fcust){
+    const[y,m,dd]=S.fcust.split('-').map(Number);
+    if(oTxt)oTxt.textContent='📅 '+new Date(y,m-1,dd).toLocaleDateString('es-UY',{day:'numeric',month:'short'});
+  } else if(oTxt) oTxt.textContent='📅 Elegir';
+}
+function setMet(m){S.met=m;const map={Débito:'mc-deb',Efectivo:'mc-ef'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
 function npP(v){if(v==='.'&&S.npStr.includes('.'))return;if(S.npStr==='0'&&v!=='.')S.npStr=v;else S.npStr+=v;if(S.npStr.length>10)S.npStr=S.npStr.slice(0,10);renderAmtNum();}
 function npDel(){S.npStr=S.npStr.slice(0,-1);renderAmtNum()}
 function renderAmtNum(){const s=S.npStr||'';if(!s){document.getElementById('amt-num').textContent='0';return}const pts=s.split('.');document.getElementById('amt-num').textContent=parseInt(pts[0]||'0').toLocaleString('es-UY')+(pts.length>1?','+(pts[1]||''):'');}
@@ -876,6 +951,7 @@ function saveForm(){
 }
 
 function askDel(){S.pendDel=S.editId;S.pendDelRec=null;document.getElementById('conf').classList.add('open');}
+function quickDel(id){S.pendDel=id;S.pendDelRec=null;document.getElementById('conf').classList.add('open');}
 function closeConf(){document.getElementById('conf').classList.remove('open');S.pendDel=null;S.pendDelRec=null;}
 function doDelete(){
   const delMov=S.pendDel,delRec=S.pendDelRec;
