@@ -680,15 +680,50 @@ function renderTab1(){
     h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Gastos por categoría</div><div class="donut-wrap">${buildDonut(catArr,egr)}<div class="donut-legend">`;
     catArr.slice(0,5).forEach(([cat,amt])=>{const p=egr>0?Math.round(amt/egr*100):0;h+=`<div class="leg-item"><div class="leg-dot" style="background:${CAT_COL[cat]||'#9ca3af'}"></div><span class="leg-name">${esc(cat)}</span><span class="leg-pct">${p}%</span></div>`;});
     h+=`</div></div>`;
-    catArr.forEach(([cat,amt])=>{const p=egr>0?Math.round(amt/egr*100):0;h+=`<div class="hbar-row"><span class="hbar-ico">${ICO[cat]||''}</span><span class="hbar-name">${esc(cat)}</span><div class="hbar-track"><div class="hbar-fill" style="width:${p}%;background:${CAT_COL[cat]||'#9ca3af'}"></div></div><span class="hbar-amt">${fU(amt)}</span></div>`;});
+    catArr.forEach(([cat,amt],ci)=>{
+      const p=egr>0?Math.round(amt/egr*100):0;
+      const catId='cat'+ci;
+      const catMovs=movs.filter(m=>m.tipo==='EGRESO'&&m.categoria===cat).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+      h+=`<div style="cursor:pointer" onclick="toggleCatDetail('${catId}')">
+        <div class="hbar-row" style="margin-bottom:4px">
+          <span class="hbar-ico">${ICO[cat]||''}</span>
+          <span class="hbar-name">${esc(cat)}</span>
+          <div class="hbar-track"><div class="hbar-fill" style="width:${p}%;background:${CAT_COL[cat]||'#9ca3af'}"></div></div>
+          <span class="hbar-amt" style="width:64px">${fU(amt)}</span>
+          <span id="chev-${catId}" style="font-size:11px;color:var(--t3);flex-shrink:0;width:14px;text-align:right">▾</span>
+        </div>
+      </div>
+      <div id="detail-${catId}" style="display:none;margin:0 0 9px 28px;border-left:2px solid ${CAT_COL[cat]||'#9ca3af'};padding-left:10px">
+        ${catMovs.map(m=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--brd)">
+          <span style="font-size:11.5px;color:var(--t2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px">${esc(m.motivo||m.categoria)}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--red);flex-shrink:0">${fU(m.monto)}</span>
+        </div>`).join('')}
+      </div>`;
+    });
     h+=`</div>`;
   }
 
   // 2. Resumen del mes
+  const ingMovs=movs.filter(m=>m.tipo==='INGRESO').sort((a,b)=>b.fecha.localeCompare(a.fecha));
   h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Resumen · ${esc(pLabel)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div style="background:var(--grnl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--grn);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ingresos</div><div style="font-size:16px;font-weight:700;color:var(--grn)">${fU(ing)}</div></div>
+    <div style="background:var(--grnl);border-radius:var(--rs);padding:10px 12px;cursor:pointer" onclick="toggleIngDetalle()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:10px;color:var(--grn);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ingresos</div><div style="font-size:16px;font-weight:700;color:var(--grn)">${fU(ing)}</div></div>
+        <span id="ing-chev" style="color:var(--grn);font-size:14px;margin-top:2px">▾</span>
+      </div>
+    </div>
     <div style="background:var(--redl);border-radius:var(--rs);padding:10px 12px"><div style="font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Gastos</div><div style="font-size:16px;font-weight:700;color:var(--red)">${fU(egr)}</div></div>
-  </div></div>`;
+  </div>
+  ${ingMovs.length?`<div id="dash-ing-detail" style="display:none;margin-top:10px;border-top:1px solid var(--brd);padding-top:8px">
+    ${ingMovs.map(m=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--brd)">
+      <div style="flex:1;min-width:0;padding-right:8px">
+        <div style="font-size:12px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.motivo||m.categoria)}</div>
+        <div style="font-size:10px;color:var(--t3)">${esc(m.categoria)} · ${m.fecha.slice(8)}/${m.fecha.slice(5,7)}</div>
+      </div>
+      <span style="font-size:13px;font-weight:700;color:var(--grn);flex-shrink:0">${fU(m.monto)}</span>
+    </div>`).join('')}
+  </div>`:''}
+  </div>`;
 
   // 3. Mini stats (Promedio diario + vs Mes anterior) — solo mes
   h+=buildMiniStats();
@@ -1058,6 +1093,22 @@ function renderTabMas(){
   document.getElementById('tc').innerHTML=h;
 }
 
+function toggleIngDetalle(){
+  const el=document.getElementById('dash-ing-detail');
+  const chev=document.getElementById('ing-chev');
+  if(!el)return;
+  const show=el.style.display==='none';
+  el.style.display=show?'block':'none';
+  if(chev)chev.textContent=show?'▴':'▾';
+}
+function toggleCatDetail(id){
+  const el=document.getElementById('detail-'+id);
+  const chev=document.getElementById('chev-'+id);
+  if(!el)return;
+  const show=el.style.display==='none';
+  el.style.display=show?'block':'none';
+  if(chev)chev.textContent=show?'▴':'▾';
+}
 function toggleCollapse(id){
   const el=document.getElementById('col-'+id);if(!el)return;
   el.classList.toggle('open');
