@@ -336,9 +336,32 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .cc-ok{padding:11px;border:none;border-radius:9px;background:var(--red);color:#fff;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
 .toast{position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 12px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--t1);color:#fff;padding:9px 18px;border-radius:22px;font-size:13px;font-weight:500;opacity:0;transition:opacity .2s,transform .2s;z-index:60;white-space:nowrap;pointer-events:none;box-shadow:var(--sh2)}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+/* LOGIN */
+.login-screen{position:fixed;inset:0;z-index:1000;background:var(--bg);display:none;align-items:center;justify-content:center;padding:24px;max-width:430px;margin:0 auto}
+.login-screen.on{display:flex}
+.login-card{width:100%;max-width:320px;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);box-shadow:var(--sh2);padding:32px 24px;text-align:center}
+.login-emoji{font-size:38px;margin-bottom:10px}
+.login-title{font-size:19px;font-weight:700;color:var(--t1);margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--t3);margin-bottom:22px;line-height:1.4}
+.login-inp{width:100%;box-sizing:border-box;padding:13px 14px;font-size:16px;border:1px solid var(--brd);border-radius:var(--rs);background:var(--bg);color:var(--t1);outline:none;text-align:center}
+.login-inp:focus{border-color:var(--blue)}
+.login-err{display:none;color:var(--red);font-size:12.5px;font-weight:600;margin-top:10px}
+.login-err.on{display:block}
+.login-btn{width:100%;margin-top:16px;padding:13px;font-size:15px;font-weight:700;color:#fff;background:var(--blue);border:none;border-radius:var(--rs);cursor:pointer}
+.login-btn:disabled{opacity:.6}
 </style>
 </head>
 <body>
+<div id="login" class="login-screen">
+  <div class="login-card">
+    <div class="login-emoji">🔒</div>
+    <div class="login-title">Finanzas Joaco</div>
+    <div class="login-sub">Ingresá tu clave para continuar</div>
+    <input id="login-inp" class="login-inp" type="password" autocomplete="current-password" placeholder="Clave" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="login-err" class="login-err">Clave incorrecta</div>
+    <button id="login-btn" class="login-btn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
 <div id="app">
   <div class="top-bar">
     <span class="app-name">Finanzas · Joaco</span>
@@ -396,11 +419,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         <div class="chips">
           <div class="chip s" id="dc-h" onclick="setFecha('h')">Hoy</div>
           <div class="chip" id="dc-a" onclick="setFecha('a')">Ayer</div>
-          <div class="chip" id="dc-o" style="position:relative;overflow:hidden">
-            <span id="dc-o-text">📅 Elegir</span>
-            <input type="date" id="dhidden" onchange="setFechaCustom(this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;background:transparent;-webkit-appearance:none;color:transparent">
-          </div>
+          <div class="chip" id="dc-o" onclick="setFecha('o')"><span id="dc-o-text">📅 Elegir</span></div>
         </div>
+        <input type="date" id="dhidden" onchange="setFechaCustom(this.value)" style="display:none;margin-top:8px;width:100%;border:1px solid var(--brd);border-radius:10px;padding:10px 13px;font-family:'Inter',sans-serif;font-size:14px;color:var(--t1);background:var(--bg);outline:none;transition:border-color .15s">
       </div>
       <div class="fg">
         <label class="fg-lbl">Método</label>
@@ -486,6 +507,7 @@ const S={
   fmod:'h',fcust:'',npStr:'',editId:null,editOM:null,editOY:null,pendDel:null,pendDelRec:null,
   period:'mes',
   url:localStorage.getItem('jfin_url')||SCRIPT_URL,
+  key:localStorage.getItem('jfin_key')||'',
   usdRate:parseFloat(localStorage.getItem('jfin_usd')||'43'),
   goal:{amt:parseFloat(localStorage.getItem('jfin_goal')||'0'),cur:localStorage.getItem('jfin_gcur')||'UYU'},
   recurrentes:JSON.parse(localStorage.getItem('jfin_rec')||'[]'),
@@ -542,12 +564,12 @@ async function fetchRate(){
 }
 
 // ── API ───────────────────────────────────────────────────────────
-function burl(p){try{const u=new URL(S.url);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,v??''));return u.toString()}catch(e){return null}}
+function burl(p){try{const u=new URL(S.url);Object.entries(p).forEach(([k,v])=>u.searchParams.set(k,v??''));u.searchParams.set('key',S.key||'');return u.toString()}catch(e){return null}}
 async function af(p){const u=burl(p);if(!u)return null;try{const r=await fetch(u,{redirect:'follow'});if(!r.ok)throw 0;return await r.json();}catch(e){return null}}
 async function loadMovs(){
   S.loading=true;renderContent();
   const c=lc();if(c){S.movs=c;S.loading=false;renderContent();}
-  if(S.url){const r=await af({action:'get',month:S.month,year:S.year});if(r&&r.status==='ok'){S.movs=r.data||[];sc(S.movs);}}
+  if(S.url){const r=await af({action:'get',month:S.month,year:S.year});if(r&&r.auth===false){showLogin();return;}if(r&&r.status==='ok'){S.movs=r.data||[];sc(S.movs);}}
   S.loading=false;renderContent();
 }
 async function apiAdd(m){S.movs.push(m);sc(S.movs);renderContent();if(!S.url)return;const{m:mo,y}=mFrom(m.fecha);af({action:'add',...m,month:mo,year:y});}
@@ -1087,6 +1109,7 @@ function renderTabMas(){
       <div class="conf-block"><div class="conf-lbl">Google Apps Script URL</div><input class="conf-inp" type="url" id="c-url" value="${esc(S.url)}" placeholder="https://script.google.com/macros/s/…"><div class="stat-row"><div class="stat-dot ${S.url?'ok':'off'}"></div><span class="stat-txt">${S.url?'Conectado':'Sin conectar'}</span><button class="conf-btn" style="margin-left:auto;padding:8px 14px;font-size:12px" onclick="saveUrl()">Guardar</button></div></div>
       <div class="conf-block"><div class="conf-lbl">Tipo de cambio (auto-actualiza)</div><div class="conf-row-i"><span class="conf-unit">1 USD =</span><input class="conf-inp-s" type="number" id="c-usd" value="${S.usdRate}" placeholder="43"><span class="conf-unit">UYU</span><button class="conf-btn" onclick="saveRate()">OK</button></div></div>
       <div class="conf-block"><div class="conf-lbl">Meta de ahorro mensual</div><div class="conf-row-i"><input class="conf-inp-s" type="number" id="c-goal" value="${S.goal.amt||''}" placeholder="0"><select class="conf-inp-s" id="c-gcur" style="max-width:80px;cursor:pointer"><option ${S.goal.cur==='UYU'?'selected':''}>UYU</option><option ${S.goal.cur==='USD'?'selected':''}>USD</option></select><button class="conf-btn" onclick="saveGoal()">OK</button></div></div>
+      <div class="conf-block"><div class="conf-lbl">Seguridad</div><div class="stat-row"><div class="stat-dot ok"></div><span class="stat-txt">Sesión activa</span><button class="conf-btn" style="margin-left:auto;padding:8px 14px;font-size:12px" onclick="logout()">Cerrar sesión 🔒</button></div></div>
     </div>
   </div><div style="height:8px"></div>`;
 
@@ -1166,22 +1189,25 @@ function renderCatGrid(){
 function setCat(k){S.cat=k;renderCatGrid()}
 function setFecha(m){
   S.fmod=m;
+  renderFechaChips();
   if(m==='o'){
     const inp=document.getElementById('dhidden');
-    if(inp){inp.value=S.fcust||todayS();try{inp.showPicker&&inp.showPicker();}catch(e){}}
+    if(inp){inp.value=S.fcust||todayS();setTimeout(()=>{try{inp.showPicker&&inp.showPicker();}catch(e){}},60);}
   }
-  renderFechaChips();
 }
 function setFechaCustom(v){if(!v)return;S.fcust=v;S.fmod='o';renderFechaChips()}
 function renderFechaChips(){
-  ['h','a','o'].forEach(d=>{const el=document.getElementById('dc-'+d);if(el)el.className='chip'+(S.fmod===d?' s':'')+(d==='o'?'':'')});
-  const oel=document.getElementById('dc-o');
-  if(oel)oel.style.cssText='position:relative;overflow:hidden';
+  ['h','a','o'].forEach(d=>{const el=document.getElementById('dc-'+d);if(el)el.className='chip'+(S.fmod===d?' s':'');});
   const oTxt=document.getElementById('dc-o-text');
-  if(S.fmod==='o'&&S.fcust){
-    const[y,m,dd]=S.fcust.split('-').map(Number);
-    if(oTxt)oTxt.textContent='📅 '+new Date(y,m-1,dd).toLocaleDateString('es-UY',{day:'numeric',month:'short'});
-  } else if(oTxt) oTxt.textContent='📅 Elegir';
+  const inp=document.getElementById('dhidden');
+  if(S.fmod==='o'){
+    if(inp)inp.style.display='block';
+    if(S.fcust){const[y,m,dd]=S.fcust.split('-').map(Number);if(oTxt)oTxt.textContent='📅 '+new Date(y,m-1,dd).toLocaleDateString('es-UY',{day:'numeric',month:'short'});}
+    else if(oTxt)oTxt.textContent='📅 Elegir';
+  } else {
+    if(inp)inp.style.display='none';
+    if(oTxt)oTxt.textContent='📅 Elegir';
+  }
 }
 function setMet(m){S.met=m;const map={Débito:'mc-deb',Efectivo:'mc-ef'};Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===m?' s':'')});}
 function npP(v){if(v==='.'&&S.npStr.includes('.'))return;if(S.npStr==='0'&&v!=='.')S.npStr=v;else S.npStr+=v;if(S.npStr.length>10)S.npStr=S.npStr.slice(0,10);renderAmtNum();}
@@ -1228,12 +1254,33 @@ function doDelete(){
 let _tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2400);}
 
+// ── LOGIN / AUTH ──────────────────────────────────────────────────
+function showLogin(){const el=document.getElementById('login');if(el){el.classList.add('on');const i=document.getElementById('login-inp');if(i){i.value='';setTimeout(()=>i.focus(),60);}}}
+function hideLogin(){const el=document.getElementById('login');if(el)el.classList.remove('on');}
+async function doLogin(){
+  const i=document.getElementById('login-inp'),err=document.getElementById('login-err'),btn=document.getElementById('login-btn');
+  const k=(i.value||'').trim();if(!k)return;
+  btn.disabled=true;btn.textContent='Entrando…';err.classList.remove('on');
+  S.key=k;
+  const r=await af({action:'get',month:S.month,year:S.year});
+  if(r&&r.status==='ok'){
+    localStorage.setItem('jfin_key',k);
+    S.movs=r.data||[];sc(S.movs);S.loading=false;
+    hideLogin();renderContent();fetchRate();
+  }else{
+    S.key='';localStorage.removeItem('jfin_key');
+    err.classList.add('on');btn.disabled=false;btn.textContent='Entrar';
+    i.value='';i.focus();
+  }
+}
+function logout(){S.key='';localStorage.removeItem('jfin_key');location.reload();}
+
 // ── BOOT ──────────────────────────────────────────────────────────
 (function(){
   renderML();
   renderContent();
-  loadMovs();
-  fetchRate();
+  if(S.key){loadMovs();fetchRate();}
+  else{showLogin();}
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){
       document.querySelectorAll('.ov.open').forEach(x=>x.classList.remove('open'));
