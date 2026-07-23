@@ -936,7 +936,7 @@ function buildMiniStats(){
     <div class="stat-card">
       <div class="stat-lbl">vs Mes anterior</div>
       <div class="stat-val ${pctCls}${mh}"${mr}>${pctTxt}</div>
-      <div class="stat-sub${mh}"${mr}>${MESES[pm-1].slice(0,3)} '${String(py).slice(2)}${isCur?' al día '+days:''}: ${fU(prevR.bal)}</div>
+      <div class="stat-sub${mh}"${mr}>${MESES[pm-1].slice(0,3)}${py!==S.year?" '"+String(py).slice(2):''}${isCur?' al día '+days:''}: ${fU(prevR.bal)}</div>
     </div>
   </div>`;
 }
