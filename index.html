@@ -583,7 +583,17 @@ async function apiDel(id){S.movs=S.movs.filter(x=>x.id!==id);sc(S.movs);renderCo
 // ── PERIOD ────────────────────────────────────────────────────────
 function getMovsPeriod(){
   if(S.period==='mes')return S.movs;
-  if(S.period==='semana'){const now=new Date(),day=now.getDay(),diff=now.getDate()-day+(day===0?-6:1);const mon=new Date(now.getFullYear(),now.getMonth(),diff);const monS=mon.getFullYear()+'-'+p2(mon.getMonth()+1)+'-'+p2(mon.getDate());return S.movs.filter(m=>m.fecha>=monS);}
+  if(S.period==='semana'){
+    // Semana calendario (lun-dom): con cota superior y sumando el mes anterior si la semana lo cruza
+    const now=new Date(),day=now.getDay(),diff=now.getDate()-day+(day===0?-6:1);
+    const mon=new Date(now.getFullYear(),now.getMonth(),diff);
+    const sun=new Date(mon);sun.setDate(sun.getDate()+6);
+    const monS=mon.getFullYear()+'-'+p2(mon.getMonth()+1)+'-'+p2(mon.getDate());
+    const sunS=sun.getFullYear()+'-'+p2(sun.getMonth()+1)+'-'+p2(sun.getDate());
+    let pool=[...S.movs];
+    if(mon.getMonth()+1!==S.month||mon.getFullYear()!==S.year)pool=pool.concat(lc(mon.getMonth()+1,mon.getFullYear())||[]);
+    return pool.filter(m=>m.fecha>=monS&&m.fecha<=sunS);
+  }
   if(S.period==='anual'){
     let movs=[];
     for(let mo=1;mo<=12;mo++){
@@ -693,6 +703,29 @@ function renderTab1(){
   const bal=ing-egr;
   const pLabel=S.period==='semana'?'esta semana':S.period==='trimestre'?'último trimestre':S.period==='anual'?'este año':'este mes';
   let h='';
+
+  // Estado vacío: sin movimientos en el período no hay nada que analizar
+  if(!movs.length){
+    h+=`<div class="chart-card" style="margin-top:12px;text-align:center;padding:24px 18px">
+      <div style="font-size:26px;margin-bottom:8px">📭</div>
+      <div style="font-size:13.5px;font-weight:700;color:var(--t1);margin-bottom:4px">Sin movimientos ${pLabel}</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.5">Agregá gastos o ingresos desde Principal y acá aparece el análisis.</div>
+    </div>`;
+    const trend0=buildTrendData();
+    if(trend0&&trend0.some(d=>!d.nd)){
+      const tt0={semana:'Últimas 4 semanas',mes:'Últimos 4 meses',trimestre:'Últimos 4 trimestres',anual:'Últimos 4 años'}[S.period];
+      h+=`<div class="chart-card" style="margin-top:12px">
+        <div class="chart-title">${tt0}</div>
+        ${buildBars(trend0)}
+        <div class="trend-labels">${trend0.map(d=>`<span class="trend-lbl">${esc(d.label)}</span>`).join('')}</div>
+        <div class="bar-legend"><span><i style="background:#16a34a"></i>Ingreso</span><span><i style="background:#dc2626"></i>Egreso</span></div>
+      </div>`;
+    }
+    h+='<div style="height:8px"></div>';
+    document.getElementById('tc').innerHTML=h;
+    schedulePrefetch();
+    return;
+  }
 
   // Meta
   if(S.period==='mes'&&S.goal.amt>0){
@@ -828,9 +861,10 @@ function buildMiniStats(){
   const daysInMonth=new Date(S.year,S.month,0).getDate();
   const days=isCur?today.getDate():daysInMonth;
   const promDay=days>0?Math.round(egr/days):0;
-  // vs Mes anterior
+  // vs Mes anterior (prorrateado: si el mes está en curso, compara contra el mes anterior hasta el mismo día)
   let pm=S.month-1,py=S.year;if(pm<1){pm=12;py--;}
-  const prev=lc(pm,py)||[];
+  const prevAll=lc(pm,py)||[];
+  const prev=isCur?prevAll.filter(m=>parseInt(m.fecha.slice(8))<=days):prevAll;
   const prevR=sumIE(prev);
   let pctTxt='—',pctCls='';
   if(prev.length===0)pctTxt='Sin datos';
@@ -849,7 +883,7 @@ function buildMiniStats(){
     <div class="stat-card">
       <div class="stat-lbl">vs Mes anterior</div>
       <div class="stat-val ${pctCls}">${pctTxt}</div>
-      <div class="stat-sub">${MESES[pm-1].slice(0,3)} '${String(py).slice(2)}: ${fU(prevR.bal)}</div>
+      <div class="stat-sub">${MESES[pm-1].slice(0,3)} '${String(py).slice(2)}${isCur?' al día '+days:''}: ${fU(prevR.bal)}</div>
     </div>
   </div>`;
 }
@@ -898,18 +932,19 @@ function sumIE(arr){
 function dataFor(mo,y){return(mo===S.month&&y===S.year)?S.movs:(lc(mo,y)||[]);}
 function buildTrendData(){
   if(S.period==='semana'){
-    const out=[],now=new Date();
+    // Semanas calendario (lun-dom), alineadas con el Resumen; pool cubre 2 meses hacia atrás
+    const out=[],now=new Date(),day=now.getDay(),diff=now.getDate()-day+(day===0?-6:1);
+    const curMon=new Date(now.getFullYear(),now.getMonth(),diff);
     let allMovs=[...S.movs];
-    let pm=S.month-1,py=S.year;if(pm<1){pm=12;py--;}
-    allMovs=allMovs.concat(lc(pm,py)||[]);
+    for(let j=1;j<=2;j++){let pm=S.month-j,py=S.year;while(pm<1){pm+=12;py--;}allMovs=allMovs.concat(lc(pm,py)||[]);}
     for(let i=3;i>=0;i--){
-      const end=new Date(now);end.setDate(end.getDate()-i*7);
-      const start=new Date(end);start.setDate(start.getDate()-6);
+      const start=new Date(curMon);start.setDate(start.getDate()-i*7);
+      const end=new Date(start);end.setDate(end.getDate()+6);
       const sS=start.getFullYear()+'-'+p2(start.getMonth()+1)+'-'+p2(start.getDate());
       const eS=end.getFullYear()+'-'+p2(end.getMonth()+1)+'-'+p2(end.getDate());
       const wMovs=allMovs.filter(m=>m.fecha>=sS&&m.fecha<=eS);
       const r=sumIE(wMovs);
-      out.push({label:start.getDate()+'/'+(start.getMonth()+1),ing:r.ing,egr:r.egr,bal:r.bal});
+      out.push({label:start.getDate()+'/'+(start.getMonth()+1),ing:r.ing,egr:r.egr,bal:r.bal,nd:wMovs.length===0});
     }
     return out;
   }
@@ -917,24 +952,27 @@ function buildTrendData(){
     const out=[];
     for(let i=3;i>=0;i--){
       let mo=S.month-i,y=S.year;if(mo<=0){mo+=12;y--;}
-      const r=sumIE(dataFor(mo,y));
-      out.push({label:shortM(mo,y),ing:r.ing,egr:r.egr,bal:r.bal});
+      const arr=dataFor(mo,y);
+      const r=sumIE(arr);
+      out.push({label:shortM(mo,y),ing:r.ing,egr:r.egr,bal:r.bal,nd:arr.length===0});
     }
     return out;
   }
   if(S.period==='trimestre'){
     const out=[];
     for(let t=3;t>=0;t--){
-      let ing=0,egr=0,endMo=S.month-t*3,endY=S.year;
+      let ing=0,egr=0,cnt=0,endMo=S.month-t*3,endY=S.year;
       while(endMo<=0){endMo+=12;endY--;}
       for(let m=0;m<3;m++){
         let mo=endMo-m,y=endY;
         while(mo<=0){mo+=12;y--;}
-        const r=sumIE(dataFor(mo,y));
+        const arr=dataFor(mo,y);
+        cnt+=arr.length;
+        const r=sumIE(arr);
         ing+=r.ing;egr+=r.egr;
       }
       const q=Math.ceil(endMo/3);
-      out.push({label:'T'+q+" '"+String(endY).slice(2),ing,egr,bal:ing-egr});
+      out.push({label:'T'+q+" '"+String(endY).slice(2),ing,egr,bal:ing-egr,nd:cnt===0});
     }
     return out;
   }
@@ -942,9 +980,9 @@ function buildTrendData(){
     const out=[];
     for(let i=3;i>=0;i--){
       const y=S.year-i;
-      let ing=0,egr=0;
-      for(let mo=1;mo<=12;mo++){const r=sumIE(dataFor(mo,y));ing+=r.ing;egr+=r.egr;}
-      out.push({label:String(y),ing,egr,bal:ing-egr});
+      let ing=0,egr=0,cnt=0;
+      for(let mo=1;mo<=12;mo++){const arr=dataFor(mo,y);cnt+=arr.length;const r=sumIE(arr);ing+=r.ing;egr+=r.egr;}
+      out.push({label:String(y),ing,egr,bal:ing-egr,nd:cnt===0});
     }
     return out;
   }
@@ -974,9 +1012,9 @@ function buildBars(data){
     const eH=Math.max((d.egr/maxVal)*chartH,d.egr>0?1.5:0);
     svg+=`<rect x="${x0}" y="${yBase-iH}" width="${barW}" height="${iH}" fill="#16a34a" rx="2"/>`;
     svg+=`<rect x="${x0+barW+2}" y="${yBase-eH}" width="${barW}" height="${eH}" fill="#dc2626" rx="2"/>`;
-    const balColor=d.bal>=0?'#16a34a':'#dc2626';
-    const balSign=d.bal>=0?'+':'';
-    svg+=`<text x="${cx}" y="${padT-8}" text-anchor="middle" font-size="11" font-weight="700" fill="${balColor}" font-family="Inter">${balSign}${fmtK(d.bal)}</text>`;
+    const balColor=d.nd?'#6b7280':(d.bal>=0?'#16a34a':'#dc2626');
+    const balTxt=d.nd?'s/d':(d.bal>=0?'+':'')+fmtK(d.bal);
+    svg+=`<text x="${cx}" y="${padT-8}" text-anchor="middle" font-size="11" font-weight="700" fill="${balColor}" font-family="Inter">${balTxt}</text>`;
   });
   svg+=`</svg>`;
   return svg;
