@@ -65,8 +65,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   box-shadow:0 8px 32px rgba(0,0,0,.22);
   overflow:hidden;
 }
-.saldo-top{padding:22px 20px 18px}
+.saldo-top{padding:22px 20px 18px;position:relative}
 .saldo-lbl{font-size:11px;font-weight:500;color:rgba(255,255,255,.45);margin-bottom:8px;letter-spacing:.3px;text-transform:uppercase}
+.saldo-eye{position:absolute;top:18px;right:16px;width:34px;height:34px;border:none;background:rgba(255,255,255,.06);border-radius:9px;color:rgba(255,255,255,.55);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s,color .2s}
+.saldo-eye:active{background:rgba(255,255,255,.14);color:#fff}
+.amt-hidden{filter:blur(11px);cursor:pointer;user-select:none;-webkit-user-select:none;transition:filter .25s}
 .saldo-num{font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1;margin-bottom:0;transition:color .3s}
 .saldo-num.pos{color:#4ade80}
 .saldo-num.neg{color:#f87171}
@@ -506,6 +509,7 @@ const S={
   movs:[],loading:false,tipo:'EGRESO',cat:'',met:'Débito',
   fmod:'h',fcust:'',npStr:'',editId:null,editOM:null,editOY:null,pendDel:null,pendDelRec:null,
   period:'mes',
+  hideBal:true,
   url:localStorage.getItem('jfin_url')||SCRIPT_URL,
   key:localStorage.getItem('jfin_key')||'',
   usdRate:parseFloat(localStorage.getItem('jfin_usd')||'43'),
@@ -594,6 +598,7 @@ function getMovsPeriod(){
 // ── RENDER ────────────────────────────────────────────────────────
 function renderML(){document.getElementById('mlbl').textContent=MESES[S.month-1]+' '+S.year}
 function renderContent(){if(S.tab===0)renderTab0();else if(S.tab===1)renderTab1();else renderTabMas();}
+function toggleBal(){S.hideBal=!S.hideBal;if(S.tab===0)renderTab0();}
 
 // ── TAB 0: PRINCIPAL ──────────────────────────────────────────────
 function renderTab0(){
@@ -602,13 +607,14 @@ function renderTab0(){
   const bal=ing-egr;
   let h=`<div class="home-card">
     <div class="saldo-top">
+      <button class="saldo-eye" onclick="toggleBal()" title="${S.hideBal?'Mostrar montos':'Ocultar montos'}">${S.hideBal?'👁️':'🙈'}</button>
       <div class="saldo-lbl">Saldo total del mes</div>
-      <div class="saldo-num ${bal>0?'pos':bal<0?'neg':'zer'}">${fU(bal)}</div>
+      <div class="saldo-num ${bal>0?'pos':bal<0?'neg':'zer'}${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(bal)}</div>
     </div>
     <div class="saldo-breakdown">
-      <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico g">↑</div>Ingresos</div><div class="saldo-val g">${fU(ing)}</div></div>
-      <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico r">↓</div>Gastos</div><div class="saldo-val r">${fU(egr)}</div></div>
-      <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico n">⚖</div>Balance</div><div class="saldo-val ${bal>0?'g':bal<0?'r':''}">${fU(bal)}</div></div>
+      <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico g">↑</div>Ingresos</div><div class="saldo-val g${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(ing)}</div></div>
+      <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico r">↓</div>Gastos</div><div class="saldo-val r${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(egr)}</div></div>
+      <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico n">⚖</div>Balance</div><div class="saldo-val ${bal>0?'g':bal<0?'r':''}${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(bal)}</div></div>
     </div>
     <div class="action-btns">
       <button class="act-btn egr" onclick="openAddTipo('EGRESO')">▼ Gasto</button>
