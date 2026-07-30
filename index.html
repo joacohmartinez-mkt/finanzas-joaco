@@ -218,6 +218,24 @@ button,[role="button"]{touch-action:manipulation}
 .budget-fill.ok{background:var(--grn)}
 .budget-fill.warn{background:var(--acc)}
 .budget-fill.over{background:var(--red)}
+
+/* SEMÁFORO (tab Mes actual) */
+.stats-row.three{grid-template-columns:1fr 1fr 1fr}
+.stat-val.sm{font-size:15px;letter-spacing:-.3px}
+.sem-day{padding:14px 16px 0;font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.4px}
+.sem-row{padding:11px 0;border-bottom:1px solid var(--brd)}
+.sem-row:last-child{border-bottom:none;padding-bottom:2px}
+.sem-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sem-cat{font-size:13px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sem-badge{font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;white-space:nowrap;flex-shrink:0}
+.sem-badge.grn{color:var(--grnT);background:var(--grnl)}
+.sem-badge.amb{color:var(--acc);background:var(--accl)}
+.sem-badge.red{color:var(--redT);background:var(--redl)}
+.sem-badge.mut{color:var(--t3);background:var(--bg);border:1px solid var(--brd)}
+.sem-track{height:5px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--brd);margin:7px 0 5px}
+.sem-fill{height:100%;border-radius:4px}
+.sem-sub{font-size:11px;color:var(--t3)}
+.fijo-tag{font-size:9px;font-weight:700;color:var(--t3);background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:1px 5px;margin-left:5px;vertical-align:1px;text-transform:uppercase;letter-spacing:.4px}
 .budget-pct{font-size:11px;font-weight:600;width:36px;text-align:right;flex-shrink:0}
 .budget-pct.ok{color:var(--grn)}.budget-pct.warn{color:var(--acc)}.budget-pct.over{color:var(--red)}
 
@@ -389,6 +407,7 @@ button,[role="button"]{touch-action:manipulation}
   <div class="tab-content" id="tc"></div>
   <div class="bot-nav">
     <div class="nav-item a" id="nav0" onclick="setTab(0)"><div class="nav-ico">🏠</div><div class="nav-lbl">Principal</div></div>
+    <div class="nav-item" id="nav3" onclick="setTab(3)"><div class="nav-ico">🚦</div><div class="nav-lbl">Mes actual</div></div>
     <div class="nav-item" id="nav1" onclick="setTab(1)"><div class="nav-ico">📊</div><div class="nav-lbl">Dashboard</div></div>
     <div class="nav-item" id="nav2" onclick="setTab(2)"><div class="nav-ico">⚙️</div><div class="nav-lbl">Más</div></div>
   </div>
@@ -520,7 +539,8 @@ const S={
   usdRate:parseFloat(localStorage.getItem('jfin_usd')||'43'),
   goal:{amt:parseFloat(localStorage.getItem('jfin_goal')||'0'),cur:localStorage.getItem('jfin_gcur')||'UYU'},
   recurrentes:JSON.parse(localStorage.getItem('jfin_rec')||'[]'),
-  budgets:JSON.parse(localStorage.getItem('jfin_budgets')||'{}'),
+  budsheet:JSON.parse(localStorage.getItem('jfin_budsheet')||'[]'),
+  _budErr:false,
   rfNpStr:'',rfCat:'Vivienda',rfMet:'Débito',rfEditId:null,
   invs:JSON.parse(localStorage.getItem('jfin_invs')||JSON.stringify([
     {id:'franklin',name:'Franklin NextStep Moderate N ACUM',isin:'LU1350352388',cur:'USD',qty:59.6,buyPrice:16.78,curPrice:17.50,note:'Itaú Inversiones'},
@@ -551,7 +571,19 @@ function sc(d,m,y){try{localStorage.setItem(ck(m,y),JSON.stringify(d))}catch(e){
 function lc(m,y){try{const d=localStorage.getItem(ck(m,y));return d?JSON.parse(d):null}catch(e){return null}}
 function saveInvs(){try{localStorage.setItem('jfin_invs',JSON.stringify(S.invs))}catch(e){}}
 function saveRecs(){try{localStorage.setItem('jfin_rec',JSON.stringify(S.recurrentes))}catch(e){}}
-function saveBudgets(){try{localStorage.setItem('jfin_budgets',JSON.stringify(S.budgets))}catch(e){}}
+function saveBudSheet(){try{localStorage.setItem('jfin_budsheet',JSON.stringify(S.budsheet))}catch(e){}}
+function curMonthFirst(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-01'}
+// Presupuesto vigente: por categoría, la fila con Vigente_desde <= 1° del mes más reciente
+function vigenteFor(cat,first){
+  let best=null;
+  S.budsheet.forEach(b=>{if(b.categoria===cat&&b.desde<=first&&b.monto>0&&(!best||b.desde>best.desde))best=b;});
+  return best;
+}
+function vigenteBudgets(first){
+  const map={};
+  S.budsheet.forEach(b=>{if(b.desde<=first&&b.monto>0&&(!map[b.categoria]||b.desde>map[b.categoria].desde))map[b.categoria]=b;});
+  return map;
+}
 function getRecDone(m,y){try{return JSON.parse(localStorage.getItem(`jfin_recdone_${y||S.year}_${m||S.month}`)||'[]')}catch(e){return[]}}
 function markRecDone(id,m,y){const d=getRecDone(m,y);if(!d.includes(id)){d.push(id);try{localStorage.setItem(`jfin_recdone_${y||S.year}_${m||S.month}`,JSON.stringify(d))}catch(e){}}}
 
@@ -584,6 +616,38 @@ async function loadMovs(){
 async function apiAdd(m){S.movs.push(m);sc(S.movs);renderContent();if(!S.url)return;const{m:mo,y}=mFrom(m.fecha);af({action:'add',...m,month:mo,year:y});}
 async function apiUpd(m){const i=S.movs.findIndex(x=>x.id===m.id);if(i>=0){S.movs[i]=m;sc(S.movs);}renderContent();if(!S.url)return;const{m:mo,y}=mFrom(m.fecha);af({action:'update',...m,month:mo,year:y,origMonth:S.editOM,origYear:S.editOY});}
 async function apiDel(id){S.movs=S.movs.filter(x=>x.id!==id);sc(S.movs);renderContent();if(!S.url)return;af({action:'delete',id,month:S.editOM,year:S.editOY});}
+async function apiBudgets(){
+  if(!S.url||!S.key)return;
+  const r=await af({action:'budgets'});
+  if(r&&r.auth===false){showLogin();return;}
+  if(r&&r.status==='ok'&&Array.isArray(r.budgets)){
+    S.budsheet=r.budgets;S._budErr=false;saveBudSheet();
+    if(S.tab===3)renderTab3();else if(S.tab===2)renderTabMas();
+  }else if(r&&r.status==='error'){
+    // Backend sin la action nueva (falta redeploy del Apps Script)
+    S._budErr=true;
+    if(S.tab===3)renderTab3();else if(S.tab===2)renderTabMas();
+  }
+}
+async function apiSetBudget(cat,monto){
+  const desde=curMonthFirst();
+  const prev=vigenteFor(cat,desde);
+  const i=S.budsheet.findIndex(b=>b.categoria===cat&&b.desde===desde);
+  const fijo=i>=0?S.budsheet[i].fijo:(prev?prev.fijo:false);
+  if(monto>0){
+    if(i>=0)S.budsheet[i]={categoria:cat,monto,desde,fijo};
+    else S.budsheet.push({categoria:cat,monto,desde,fijo});
+  }else if(i>=0)S.budsheet.splice(i,1);
+  saveBudSheet();
+  if(!S.url)return;
+  const r=await af({action:'setbudget',categoria:cat,monto,desde});
+  if(r&&r.auth===false){showLogin();return;}
+  if(!r||r.status!=='ok'){
+    if(r&&/desconocida/i.test(r.message||''))S._budErr=true;
+    toast('No se pudo guardar en el Sheet');
+    apiBudgets();
+  }
+}
 
 // ── PERIOD ────────────────────────────────────────────────────────
 function getMovsPeriod(){
@@ -611,8 +675,12 @@ function getMovsPeriod(){
 }
 
 // ── RENDER ────────────────────────────────────────────────────────
-function renderML(){document.getElementById('mlbl').textContent=MESES[S.month-1]+' '+S.year}
-function renderContent(){if(S.tab===0)renderTab0();else if(S.tab===1){syncPS();renderTab1();}else renderTabMas();}
+function renderML(){
+  const el=document.getElementById('mlbl');
+  if(S.tab===3){const d=new Date();el.textContent=MESES[d.getMonth()]+' '+d.getFullYear();}
+  else el.textContent=MESES[S.month-1]+' '+S.year;
+}
+function renderContent(){if(S.tab===0)renderTab0();else if(S.tab===1){syncPS();renderTab1();}else if(S.tab===3)renderTab3();else renderTabMas();}
 function toggleBal(){S.hideBal=!S.hideBal;syncPS();renderContent();}
 
 // ── TAB 0: PRINCIPAL ──────────────────────────────────────────────
@@ -793,22 +861,7 @@ function renderTab1(){
     h+=`</div>`;
   }
 
-  // 1b. Presupuestos por categoría (config en Más) — solo vista mensual
-  if(S.period==='mes'&&Object.keys(S.budgets).length){
-    const bArr=Object.entries(S.budgets).map(([cat,b])=>({cat,b,spent:catT[cat]||0,pct:b>0?Math.round((catT[cat]||0)/b*100):0})).sort((a,b)=>b.pct-a.pct);
-    h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Presupuestos</div>`;
-    bArr.forEach(x=>{
-      const col=x.pct>100?'var(--red)':x.pct>=80?'var(--acc)':'var(--grn)';
-      h+=`<div style="margin-bottom:11px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:12px;color:var(--t2)">${ICO[x.cat]||''} ${esc(x.cat)}</span>
-          <span style="font-size:12px;font-weight:600;color:${x.pct>100?'var(--redT)':'var(--t1)'}"><span class="${S.hideBal?'amt-hidden':''}"${REV}>${fU(x.spent)} / ${fU(x.b)}</span> · ${x.pct}%</span>
-        </div>
-        <div class="prog-track"><div class="budget-fill" style="width:${Math.min(100,x.pct)}%;background:${col}"></div></div>
-      </div>`;
-    });
-    h+=`</div>`;
-  }
+  // (La card de Presupuestos se mudó al tab Mes actual, con semáforo por proyección)
 
   // 2. Resumen del mes
   const ingMovs=movs.filter(m=>m.tipo==='INGRESO').sort((a,b)=>b.fecha.localeCompare(a.fecha));
@@ -1078,6 +1131,102 @@ function buildBars(data){
   return svg;
 }
 
+// ── TAB 3: MES ACTUAL (semáforo de presupuesto) ───────────────────
+// Siempre sobre el mes calendario en curso, sin navegación de meses.
+// Semáforo sobre PROYECCIÓN a fin de mes, no sobre gastado:
+//   variables: proy = gastado × (días del mes / día actual)
+//   fijos (Es_gasto_fijo): sin registrar → "pendiente" y proy = tope; registrado → proy = gastado
+//   días 1-2: proyección estadísticamente inútil → estado neutro
+function renderTab3(){
+  const now=new Date(),cy=now.getFullYear(),cm=now.getMonth()+1;
+  const day=now.getDate(),dim=new Date(cy,cm,0).getDate();
+  const first=cy+'-'+p2(cm)+'-01';
+  const movs=dataFor(cm,cy);
+  if(!movs.length&&!(cm===S.month&&cy===S.year)&&!lc(cm,cy)&&S.url&&!S._m3f){
+    S._m3f=true;
+    af({action:'get',month:cm,year:cy}).then(r=>{S._m3f=false;if(r&&r.status==='ok'){sc(r.data||[],cm,cy);if(S.tab===3)renderTab3();}});
+  }
+  const HID=S.hideBal?' amt-hidden':'';
+  const REV=S.hideBal?' onclick="event.stopPropagation();toggleBal()"':'';
+  const t=sumIE(movs);
+  let h=`<div class="sem-day">Día ${day} de ${dim}</div>
+  <div class="stats-row three">
+    <div class="stat-card"><div class="stat-lbl">Ingresos</div><div class="stat-val sm up${HID}"${REV}>${fU(t.ing)}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Egresos</div><div class="stat-val sm dn${HID}"${REV}>${fU(t.egr)}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Diferencia</div><div class="stat-val sm ${t.bal>0?'up':t.bal<0?'dn':''}${HID}"${REV}>${t.bal>0?'+':''}${fU(t.bal)}</div></div>
+  </div>`;
+  if(S._budErr){
+    h+=`<div class="chart-card" style="margin-top:12px;padding:12px 14px;display:flex;gap:10px;align-items:center"><span style="font-size:18px;flex-shrink:0">⚠️</span><span style="font-size:12px;color:var(--t2);line-height:1.4">El Apps Script no tiene la versión con presupuestos. Pegá el backend.gs nuevo y redeployá.</span></div>`;
+  }
+  const buds=vigenteBudgets(first);
+  const cats=Object.keys(buds);
+  if(!cats.length){
+    const fut=S.budsheet.filter(b=>b.desde>first&&b.monto>0).map(b=>b.desde).sort()[0];
+    const futLbl=fut?MESES[parseInt(fut.slice(5,7),10)-1]+' '+fut.slice(0,4):'';
+    h+=`<div class="empty"><div class="empty-ico">🚦</div><div class="empty-ttl">${fut?'Todavía no rigen los topes':'Sin presupuesto configurado'}</div><div class="empty-sub">${fut?'Tu presupuesto arranca en '+esc(futLbl)+'.':'Cargá topes por categoría en Más → 💰 Presupuesto.'}</div></div>`;
+    document.getElementById('tc').innerHTML=h;
+    return;
+  }
+  const catT={};movs.filter(m=>m.tipo==='EGRESO').forEach(m=>{catT[m.categoria]=(catT[m.categoria]||0)+parseFloat(m.monto||0)});
+  const noData=!movs.length;
+  const early=day<=2;
+  const rows=cats.map(c=>{
+    const b=buds[c],spent=catT[c]||0;
+    let proy,estado='';
+    if(noData){proy=0;estado='mut';}
+    else if(b.fijo){
+      if(spent>0)proy=spent;
+      else{proy=b.monto;estado='pend';}
+    }
+    else if(early){proy=spent;estado='early';}
+    else proy=spent*dim/day;
+    const pp=b.monto>0?proy/b.monto*100:0;
+    if(!estado){
+      if(b.fijo)estado=pp<=100?'grn':pp<=110?'amb':'red';
+      else estado=pp<90?'grn':pp<=110?'amb':'red';
+    }
+    return{c,b,spent,proy,pp,estado};
+  });
+  const rank={red:0,amb:1,grn:2,early:3,pend:4,mut:5};
+  rows.sort((a,b)=>rank[a.estado]-rank[b.estado]||b.pp-a.pp);
+  h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Presupuesto vs proyección</div>`;
+  rows.forEach(r=>{
+    const spentPct=r.b.monto>0?Math.min(100,r.spent/r.b.monto*100):0;
+    const barCol=r.estado==='grn'?'var(--grn)':r.estado==='amb'?'var(--acc)':r.estado==='red'?'var(--red)':'#94a3b8';
+    let badge,badgeCls,sub;
+    if(noData){badge='sin datos';badgeCls='mut';sub='Sin datos aún · tope '+fU(r.b.monto);}
+    else if(r.estado==='pend'){badge='pendiente';badgeCls='mut';sub=`Gasto fijo · ${fU(r.b.monto)} aún sin registrar`;}
+    else if(r.estado==='early'){badge='recién arranca';badgeCls='mut';sub=`Llevás ${fU(r.spent)} de ${fU(r.b.monto)} · proyección desde el día 3`;}
+    else if(r.b.fijo){badge='pagado · '+Math.round(r.pp)+'%';badgeCls=r.estado;sub=`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)}`;}
+    else{badge='termina en '+Math.round(r.pp)+'%';badgeCls=r.estado;sub=`Llevás ${fU(r.spent)} de ${fU(r.b.monto)} · así terminás en ${fU(r.proy)}`;}
+    h+=`<div class="sem-row">
+      <div class="sem-top"><span class="sem-cat">${ICO[r.c]||''} ${esc(r.c)}${r.b.fijo?'<span class="fijo-tag">fijo</span>':''}</span><span class="sem-badge ${badgeCls}">${badge}</span></div>
+      <div class="sem-track"><div class="sem-fill" style="width:${noData||r.estado==='pend'?0:spentPct}%;background:${barCol}"></div></div>
+      <div class="sem-sub${HID}"${REV}>${sub}</div>
+    </div>`;
+  });
+  // Gastos en categorías sin tope: fuera del semáforo pero dentro de Egresos
+  const noBud=Object.keys(catT).filter(c=>!buds[c]&&catT[c]>0).sort((a,b)=>catT[b]-catT[a]);
+  if(noBud.length){
+    const nbSum=noBud.reduce((a,c)=>a+catT[c],0);
+    h+=`<div class="sem-row"><div class="sem-top"><span class="sem-sub" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sin tope: ${esc(noBud.join(', '))}</span><span class="sem-sub${HID}" style="flex-shrink:0;font-weight:600"${REV}>${fU(nbSum)}</span></div></div>`;
+  }
+  const totT=rows.reduce((a,r)=>a+r.b.monto,0);
+  const totS=rows.reduce((a,r)=>a+r.spent,0);
+  const totP=rows.reduce((a,r)=>a+r.proy,0);
+  const totPP=totT>0?totP/totT*100:0;
+  let totBadge,totCls,totSub;
+  if(noData){totBadge='sin datos';totCls='mut';totSub='Topes: '+fU(totT);}
+  else if(early){totBadge='recién arranca';totCls='mut';totSub=`Llevás ${fU(totS)} de ${fU(totT)}`;}
+  else{totCls=totPP<90?'grn':totPP<=110?'amb':'red';totBadge='termina en '+Math.round(totPP)+'%';totSub=`Llevás ${fU(totS)} de ${fU(totT)} · así terminás en ${fU(totP)}`;}
+  h+=`<div class="sem-row" style="margin-top:2px">
+    <div class="sem-top"><span class="sem-cat">Total</span><span class="sem-badge ${totCls}">${totBadge}</span></div>
+    <div class="sem-sub${HID}" style="margin-top:5px"${REV}>${totSub}</div>
+  </div>`;
+  h+=`</div><div style="height:8px"></div>`;
+  document.getElementById('tc').innerHTML=h;
+}
+
 // Recurrentes list helper - usado dentro de Más (renderTabMas)
 function buildRecList(){
   let h=`<button class="add-rec-btn" onclick="openAddRec()">+ Nuevo gasto recurrente</button>`;
@@ -1186,12 +1335,16 @@ function renderTabMas(){
     <div class="collapse-body">${buildRecList()}</div>
   </div>`;
 
-  // Presupuesto por categoría (colapsable)
-  const budCnt=Object.values(S.budgets).filter(v=>v>0).length;
-  let budBody='';
+  // Presupuesto por categoría (colapsable) — vive en la hoja "Presupuestos" del Sheet
+  const bFirst=curMonthFirst();
+  const buds=vigenteBudgets(bFirst);
+  const budCnt=Object.keys(buds).length;
+  let budBody=S._budErr
+    ?`<div style="font-size:11px;color:var(--redT);background:var(--redl);border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.4">⚠️ El Apps Script no tiene la versión con presupuestos: los cambios no se van a guardar en el Sheet hasta redeployar.</div>`
+    :`<div style="font-size:11px;color:var(--t3);margin:0 2px 8px;line-height:1.4">Se guardan en la hoja "Presupuestos" del Sheet y rigen desde este mes (lo anterior queda como historial).</div>`;
   CAT_E.forEach(c=>{
-    const bud=S.budgets[c.k]||'';
-    budBody+=`<div class="bset-row"><span class="bset-ico">${c.i}</span><span class="bset-name">${esc(c.k)}</span><input type="number" class="bset-inp" value="${bud}" placeholder="0" inputmode="numeric" onchange="setBudget('${esc(c.k)}',this.value)"><span class="bset-cur">$U/mes</span></div>`;
+    const b=buds[c.k];
+    budBody+=`<div class="bset-row"><span class="bset-ico">${c.i}</span><span class="bset-name">${esc(c.k)}${b&&b.fijo?'<span class="fijo-tag">fijo</span>':''}</span><input type="number" class="bset-inp" value="${b?b.monto:''}" placeholder="0" inputmode="numeric" onchange="setBudgetInp('${esc(c.k)}',this.value)"><span class="bset-cur">$U/mes</span></div>`;
   });
   h+=`<div class="collapse${oc('bud')}" id="col-bud">
     <div class="collapse-hdr" onclick="toggleCollapse('bud')">
@@ -1243,7 +1396,7 @@ function toggleCollapse(id){
 }
 
 function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;saveInvs();renderTabMas();}}
-function setBudget(cat,v){const n=parseFloat(v)||0;if(n>0)S.budgets[cat]=n;else delete S.budgets[cat];saveBudgets();}
+function setBudgetInp(cat,v){const n=parseFloat(v)||0;apiSetBudget(cat,n);toast(n>0?'Tope guardado ✓':'Tope quitado');}
 function saveUrl(){const u=document.getElementById('c-url').value.trim();S.url=u;localStorage.setItem('jfin_url',u);toast(u?'URL guardada ✓':'URL eliminada');loadMovs();renderTabMas();}
 function saveRate(){const r=parseFloat(document.getElementById('c-usd').value)||43;S.usdRate=r;localStorage.setItem('jfin_usd',r);toast('Tipo de cambio actualizado');renderTabMas();}
 function saveGoal(){const a=parseFloat(document.getElementById('c-goal').value)||0,c=document.getElementById('c-gcur').value;S.goal={amt:a,cur:c};localStorage.setItem('jfin_goal',a);localStorage.setItem('jfin_gcur',c);toast('Meta guardada');renderTabMas();}
@@ -1252,8 +1405,12 @@ function saveGoal(){const a=parseFloat(document.getElementById('c-goal').value)|
 function prevM(){S.month--;if(S.month<1){S.month=12;S.year--;}S._prefetchedKey=null;renderML();loadMovs();}
 function nextM(){S.month++;if(S.month>12){S.month=1;S.year++;}S._prefetchedKey=null;renderML();loadMovs();}
 function setTab(t){
-  S.tab=t;[0,1,2].forEach(i=>{const el=document.getElementById('nav'+i);if(el)el.className='nav-item'+(t===i?' a':'')});
+  S.tab=t;[0,1,2,3].forEach(i=>{const el=document.getElementById('nav'+i);if(el)el.className='nav-item'+(t===i?' a':'')});
   document.getElementById('period-bar').className='period-bar'+(t===1?' vis':'');
+  // El tab Mes actual está clavado al mes calendario: sin flechas de navegación
+  document.querySelectorAll('.mn-btn').forEach(b=>b.style.visibility=t===3?'hidden':'visible');
+  renderML();
+  if(t===3)apiBudgets();
   renderContent();
 }
 
@@ -1368,7 +1525,7 @@ async function doLogin(){
   if(r&&r.status==='ok'){
     localStorage.setItem('jfin_key',k);
     S.movs=r.data||[];sc(S.movs);S.loading=false;
-    hideLogin();renderContent();fetchRate();
+    hideLogin();renderContent();fetchRate();apiBudgets();
   }else{
     S.key='';localStorage.removeItem('jfin_key');
     err.classList.add('on');btn.disabled=false;btn.textContent='Entrar';
@@ -1379,9 +1536,10 @@ function logout(){S.key='';localStorage.removeItem('jfin_key');location.reload()
 
 // ── BOOT ──────────────────────────────────────────────────────────
 (function(){
+  try{localStorage.removeItem('jfin_budgets')}catch(e){}
   renderML();
   renderContent();
-  if(S.key){loadMovs();fetchRate();}
+  if(S.key){loadMovs();fetchRate();apiBudgets();}
   else{showLogin();}
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){
