@@ -51,6 +51,9 @@ button,[role="button"]{touch-action:manipulation}
 .tab-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 8px)}
 .period-bar{display:none;background:var(--bg);border-bottom:1px solid var(--brd);padding:8px 14px;gap:6px;flex-shrink:0}
 .period-bar.vis{display:flex}
+.met-bar{display:none;background:var(--bg);border-bottom:1px solid var(--brd);padding:0 14px 9px;gap:6px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.met-bar::-webkit-scrollbar{display:none}
+.met-bar.vis{display:flex}
 .ps-btn{flex:1;padding:8px;min-height:44px;border-radius:8px;border:1px solid var(--brd);background:var(--surf);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--t2);transition:background .14s,color .14s,border-color .14s;-webkit-user-select:none;user-select:none}
 .ps-eye{flex:0 0 46px;font-size:15px}
 .ps-btn.a{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -404,6 +407,12 @@ button,[role="button"]{touch-action:manipulation}
     <button class="ps-btn" id="ps-ano" onclick="setPeriod('anual')">Año</button>
     <button class="ps-btn ps-eye" id="ps-eye" onclick="toggleBal()" aria-label="Mostrar u ocultar montos" title="Mostrar/ocultar montos">👁️</button>
   </div>
+  <div class="met-bar" id="met-bar">
+    <div class="chip s" id="mf-all" onclick="setMetF('todos')">Todos</div>
+    <div class="chip" id="mf-deb" onclick="setMetF('Débito')">💳 Débito</div>
+    <div class="chip" id="mf-ef" onclick="setMetF('Efectivo')">💵 Efectivo</div>
+    <div class="chip" id="mf-pp" onclick="setMetF('PayPal')">🅿️ PayPal</div>
+  </div>
   <div class="tab-content" id="tc"></div>
   <div class="bot-nav">
     <div class="nav-item a" id="nav0" onclick="setTab(0)"><div class="nav-ico">🏠</div><div class="nav-lbl">Principal</div></div>
@@ -526,7 +535,7 @@ const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','
 const CAT_E=[{k:'Alimentación',i:'🛒'},{k:'Comida afuera',i:'🍽️'},{k:'Bebidas/Social',i:'🍷'},{k:'Transporte',i:'🚌'},{k:'Moto',i:'🏍️'},{k:'Salud',i:'🏥'},{k:'Vivienda',i:'🏠'},{k:'Apps/Suscripciones',i:'📱'},{k:'Beats/Producción',i:'🎛️'},{k:'Tecnología',i:'💻'},{k:'Cuidado personal',i:'✂️'},{k:'Varios',i:'📦'}];
 const CAT_I=[{k:'Sueldo Viatik',i:'💼'},{k:'Beats/BeatStars',i:'🎵'},{k:'Madreselva',i:'🌿'},{k:'Freelance web',i:'🖥️'},{k:'Inversiones',i:'📈'},{k:'Otros',i:'💰'}];
 const ICO={};[...CAT_E,...CAT_I].forEach(c=>ICO[c.k]=c.i);
-const CAT_COL={'Alimentación':'#16a34a','Comida afuera':'#ea580c','Bebidas/Social':'#9333ea','Transporte':'#2563eb','Moto':'#0891b2','Fitness':'#d97706','Salud':'#e11d48','Vivienda':'#7c3aed','Apps/Suscripciones':'#475569','Beats/Producción':'#0d9488','Regalos':'#db2777','Tecnología':'#1d4ed8','Proyectos':'#059669','Cuidado personal':'#c2410c','Varios':'#9ca3af'};
+const CAT_COL={'Alimentación':'#16a34a','Comida afuera':'#ea580c','Bebidas/Social':'#9333ea','Transporte':'#2563eb','Moto':'#0891b2','Fitness':'#d97706','Salud':'#e11d48','Vivienda':'#7c3aed','Apps/Suscripciones':'#475569','Beats/Producción':'#0d9488','Regalos':'#db2777','Tecnología':'#1d4ed8','Proyectos':'#059669','Cuidado personal':'#c2410c','Varios':'#9ca3af','Sueldo Viatik':'#0369a1','Beats/BeatStars':'#7e22ce','Madreselva':'#15803d','Freelance web':'#b45309','Inversiones':'#0f766e','Otros':'#6b7280'};
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycby1ZloCO6Mpc3S6BXWYf5CCQB0crXouo_xAUx6XVS5n70pYGEHPWxcaG6NEMjYcCDn_/exec';
 
 // ── STATE ────────────────────────────────────────────────────────
@@ -535,6 +544,7 @@ const S={
   movs:[],loading:false,tipo:'EGRESO',cat:'',met:'Débito',
   fmod:'h',fcust:'',npStr:'',editId:null,editOM:null,editOY:null,pendDel:null,pendDelRec:null,
   period:localStorage.getItem('jfin_period')||'mes',
+  metf:localStorage.getItem('jfin_metf')||'todos',
   hideBal:true,
   url:localStorage.getItem('jfin_url')||SCRIPT_URL,
   key:localStorage.getItem('jfin_key')||'',
@@ -652,7 +662,14 @@ async function apiSetBudget(cat,monto){
 }
 
 // ── PERIOD ────────────────────────────────────────────────────────
-function getMovsPeriod(){
+// Filtro por método. Un solo punto de verdad: lo consumen getMovsPeriod y el trend.
+// OJO: dataFor() queda SIN filtrar a propósito — renderTab3 (semáforo de presupuesto)
+// la usa, y los topes son totales, no por método.
+function fMet(arr){return S.metf==='todos'?arr:arr.filter(m=>(m.metodo||'')===S.metf);}
+function tData(mo,y){return fMet(dataFor(mo,y));}
+function metfLbl(){return S.metf==='todos'?'':S.metf;}
+function getMovsPeriod(){return fMet(getMovsPeriodRaw());}
+function getMovsPeriodRaw(){
   if(S.period==='mes')return S.movs;
   if(S.period==='semana'){
     // Semana calendario (lun-dom): con cota superior y sumando el mes anterior si la semana lo cruza
@@ -771,7 +788,18 @@ function setPeriod(p){
   renderTab1();
 }
 // Sincroniza botones de período + ícono del ojo (el estado puede venir persistido o cambiar desde otro tab)
+function setMetF(m){
+  S.metf=m;
+  try{localStorage.setItem('jfin_metf',m)}catch(e){}
+  syncMetF();
+  renderTab1();
+}
+function syncMetF(){
+  const map={todos:'mf-all','Débito':'mf-deb','Efectivo':'mf-ef','PayPal':'mf-pp'};
+  Object.keys(map).forEach(k=>{const el=document.getElementById(map[k]);if(el)el.className='chip'+(k===S.metf?' s':'')});
+}
 function syncPS(){
+  syncMetF();
   const map={sem:'semana',mes:'mes',tri:'trimestre',ano:'anual'};
   Object.keys(map).forEach(x=>{const el=document.getElementById('ps-'+x);if(el)el.className='ps-btn'+(map[x]===S.period?' a':'');});
   const eye=document.getElementById('ps-eye');
@@ -802,8 +830,9 @@ function renderTab1(){
   if(!movs.length){
     h+=`<div class="chart-card" style="margin-top:12px;text-align:center;padding:24px 18px">
       <div style="font-size:26px;margin-bottom:8px">📭</div>
-      <div style="font-size:13.5px;font-weight:700;color:var(--t1);margin-bottom:4px">Sin movimientos ${pLabel}</div>
-      <div style="font-size:12px;color:var(--t2);line-height:1.5">Agregá gastos o ingresos desde Principal y acá aparece el análisis.</div>
+      <div style="font-size:13.5px;font-weight:700;color:var(--t1);margin-bottom:4px">Sin movimientos ${metfLbl()?'por '+esc(metfLbl())+' ':''}${pLabel}</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.5">${metfLbl()?'Tenés el filtro <b>'+esc(metfLbl())+'</b> puesto. Puede haber movimientos con otro método.':'Agregá gastos o ingresos desde Principal y acá aparece el análisis.'}</div>
+      ${metfLbl()?`<button onclick="setMetF('todos')" style="margin-top:12px;border:1px solid var(--brd);background:var(--bg);border-radius:8px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--t1);cursor:pointer;min-height:44px">Ver todos los métodos</button>`:''}
     </div>`;
     const trend0=buildTrendData();
     if(trend0&&trend0.some(d=>!d.nd)){
@@ -865,9 +894,45 @@ function renderTab1(){
 
   // (La card de Presupuestos se mudó al tab Mes actual, con semáforo por proyección)
 
+  // 1b. Ingresos por categoría (espejo del de gastos; con el filtro de método puesto
+  //     en PayPal muestra sólo lo que entra por el proyecto de beats)
+  const ingT={};movs.filter(m=>m.tipo==='INGRESO').forEach(m=>{ingT[m.categoria]=(ingT[m.categoria]||0)+parseFloat(m.monto||0)});
+  const ingArr=Object.entries(ingT).sort((a,b)=>b[1]-a[1]);
+  if(ingArr.length){
+    h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Ingresos por categoría</div><div class="donut-wrap">${buildDonut(ingArr,ing)}<div class="donut-legend">`;
+    ingArr.slice(0,5).forEach(([cat,amt])=>{const p=ing>0?Math.round(amt/ing*100):0;h+=`<div class="leg-item"><div class="leg-dot" style="background:${CAT_COL[cat]||'#9ca3af'}"></div><span class="leg-name">${esc(cat)}</span><span class="leg-pct">${p}%</span></div>`;});
+    if(ingArr.length>5){
+      const rest=ingArr.slice(5);
+      const restP=ing>0?Math.round(rest.reduce((a,[,v])=>a+v,0)/ing*100):0;
+      h+=`<div class="leg-item"><div class="leg-dot" style="background:var(--brd)"></div><span class="leg-name" style="color:var(--t3)">+${rest.length} más</span><span class="leg-pct" style="color:var(--t3)">${restP}%</span></div>`;
+    }
+    h+=`</div></div>`;
+    ingArr.forEach(([cat,amt],ci)=>{
+      const p=ing>0?Math.round(amt/ing*100):0;
+      const catId='icat'+ci;
+      const catMovs=movs.filter(m=>m.tipo==='INGRESO'&&m.categoria===cat).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+      h+=`<div style="cursor:pointer;min-height:44px;display:flex;align-items:center" role="button" tabindex="0" aria-label="Ver detalle de ${esc(cat)}" onclick="toggleCatDetail('${catId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+        <div class="hbar-row" style="margin-bottom:0;flex:1">
+          <span class="hbar-ico">${ICO[cat]||''}</span>
+          <span class="hbar-name">${esc(cat)}</span>
+          <div class="hbar-track"><div class="hbar-fill" style="width:${p}%;background:${CAT_COL[cat]||'#9ca3af'}"></div></div>
+          <span class="hbar-amt${HID}" style="width:72px"${REV}>${fU(amt)}</span>
+          <span id="chev-${catId}" style="font-size:12px;color:var(--t3);flex-shrink:0;width:22px;text-align:right">▾</span>
+        </div>
+      </div>
+      <div id="detail-${catId}" style="display:none;margin:2px 0 9px 24px;background:var(--bg);border-radius:8px;padding:4px 12px">
+        ${catMovs.map(m=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--brd)">
+          <span style="font-size:12px;color:var(--t2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:8px">${esc(m.motivo||m.categoria)}</span>
+          <span class="${S.hideBal?'amt-hidden':''}" style="font-size:12px;font-weight:600;color:var(--grn);flex-shrink:0"${REV}>${fU(m.monto)}</span>
+        </div>`).join('')}
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
   // 2. Resumen del mes
   const ingMovs=movs.filter(m=>m.tipo==='INGRESO').sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Resumen · ${esc(pLabel)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+  h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Resumen · ${esc(pLabel)}${metfLbl()?' · '+esc(metfLbl()):''}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div style="background:var(--grnl);border-radius:var(--rs);padding:10px 12px;cursor:pointer;min-height:44px" role="button" tabindex="0" aria-label="Ver detalle de ingresos" onclick="toggleIngDetalle()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="font-size:11px;color:var(--grnT);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ingresos</div><div class="${S.hideBal?'amt-hidden':''}" style="font-size:16px;font-weight:700;color:var(--grnT)"${REV}>${fU(ing)}</div></div>
@@ -1046,6 +1111,7 @@ function buildTrendData(){
     const curMon=new Date(now.getFullYear(),now.getMonth(),diff);
     let allMovs=[...S.movs];
     for(let j=1;j<=2;j++){let pm=S.month-j,py=S.year;while(pm<1){pm+=12;py--;}allMovs=allMovs.concat(lc(pm,py)||[]);}
+    allMovs=fMet(allMovs);
     for(let i=3;i>=0;i--){
       const start=new Date(curMon);start.setDate(start.getDate()-i*7);
       const end=new Date(start);end.setDate(end.getDate()+6);
@@ -1064,7 +1130,7 @@ function buildTrendData(){
     const out=[];
     for(let i=3;i>=0;i--){
       let mo=S.month-i,y=S.year;if(mo<=0){mo+=12;y--;}
-      const arr=dataFor(mo,y);
+      const arr=tData(mo,y);
       const r=sumIE(arr);
       out.push({label:shortM(mo,y),ing:r.ing,egr:r.egr,bal:r.bal,nd:arr.length===0});
     }
@@ -1078,7 +1144,7 @@ function buildTrendData(){
       for(let m=0;m<3;m++){
         let mo=endMo-m,y=endY;
         while(mo<=0){mo+=12;y--;}
-        const arr=dataFor(mo,y);
+        const arr=tData(mo,y);
         cnt+=arr.length;
         const r=sumIE(arr);
         ing+=r.ing;egr+=r.egr;
@@ -1093,7 +1159,7 @@ function buildTrendData(){
     for(let i=3;i>=0;i--){
       const y=S.year-i;
       let ing=0,egr=0,cnt=0;
-      for(let mo=1;mo<=12;mo++){const arr=dataFor(mo,y);cnt+=arr.length;const r=sumIE(arr);ing+=r.ing;egr+=r.egr;}
+      for(let mo=1;mo<=12;mo++){const arr=tData(mo,y);cnt+=arr.length;const r=sumIE(arr);ing+=r.ing;egr+=r.egr;}
       out.push({label:String(y),ing,egr,bal:ing-egr,nd:cnt===0});
     }
     return out;
@@ -1409,6 +1475,7 @@ function nextM(){S.month++;if(S.month>12){S.month=1;S.year++;}S._prefetchedKey=n
 function setTab(t){
   S.tab=t;[0,1,2,3].forEach(i=>{const el=document.getElementById('nav'+i);if(el)el.className='nav-item'+(t===i?' a':'')});
   document.getElementById('period-bar').className='period-bar'+(t===1?' vis':'');
+  document.getElementById('met-bar').className='met-bar'+(t===1?' vis':'');
   // El tab Mes actual está clavado al mes calendario: sin flechas de navegación
   document.querySelectorAll('.mn-btn').forEach(b=>b.style.visibility=t===3?'hidden':'visible');
   renderML();
