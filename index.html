@@ -275,7 +275,13 @@ button,[role="button"]{touch-action:manipulation}
 .pos-uyu{font-size:14px;font-weight:700;color:var(--t1)}
 .pos-pl{font-size:11px;font-weight:600;margin-top:2px}
 .pos-pl.up{color:var(--grn)}.pos-pl.dn{color:var(--red)}
-.pos-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--bg);border-radius:var(--rs);padding:10px}
+.pos-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;background:var(--bg);border-radius:var(--rs);padding:10px}
+.pos-cb{display:flex;gap:8px;margin-top:8px;padding:9px 10px;background:var(--bg);border-radius:var(--rs)}
+.pos-cb>div{flex:1;min-width:0}
+.pcv{font-size:12px;font-weight:700;color:var(--t1);line-height:1.3}
+.pcv.up{color:var(--grn)}.pcv.dn{color:var(--red)}
+.pcv .pct{font-weight:500;font-size:11px}
+.pos-note{font-size:10px;color:var(--t3);line-height:1.45;margin-top:8px;padding-left:8px;border-left:2px solid var(--brd)}
 .pcl{font-size:10px;color:var(--t3);font-weight:500;margin-bottom:3px}
 .pos-inp{width:100%;background:var(--surf);border:1px solid #bfdbfe;border-radius:6px;color:#1d4ed8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:3px 6px;outline:none;text-align:center}
 
@@ -538,6 +544,48 @@ const ICO={};[...CAT_E,...CAT_I].forEach(c=>ICO[c.k]=c.i);
 const CAT_COL={'Alimentación':'#16a34a','Comida afuera':'#ea580c','Bebidas/Social':'#9333ea','Transporte':'#2563eb','Moto':'#0891b2','Fitness':'#d97706','Salud':'#e11d48','Vivienda':'#7c3aed','Apps/Suscripciones':'#475569','Beats/Producción':'#0d9488','Regalos':'#db2777','Tecnología':'#1d4ed8','Proyectos':'#059669','Cuidado personal':'#c2410c','Varios':'#9ca3af','Sueldo Viatik':'#0369a1','Beats/BeatStars':'#7e22ce','Madreselva':'#15803d','Freelance web':'#b45309','Inversiones':'#0f766e','Otros':'#6b7280'};
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycby1ZloCO6Mpc3S6BXWYf5CCQB0crXouo_xAUx6XVS5n70pYGEHPWxcaG6NEMjYcCDn_/exec';
 
+// ── INVERSIONES ──────────────────────────────────────────────────
+// El seed define QUÉ posiciones existen (nombre, ticker, bróker), NUNCA los
+// montos: este repo es PÚBLICO y la tenencia es dato personal. Los importes,
+// la fecha de compra y la tesis viven sólo en localStorage, en el dispositivo.
+// Es el mismo principio que el resto de la app: el código va al repo, la data no.
+// buyPrice = precio por unidad. fee = comisión. totalCost = qty*buyPrice+fee.
+const INV_SEED=[
+  {id:'franklin',name:'Franklin NextStep Moderate N ACUM',ticker:'',isin:'LU1350352388',tipo:'fondo',exch:'',cur:'USD',
+   qty:0,buyPrice:0,fee:0,totalCost:0,curPrice:0,broker:'Itaú Inversiones',buyDate:'',note:''},
+  {id:'ttwo',name:'Take-Two Interactive Software Inc.',ticker:'TTWO',isin:'',tipo:'accion',exch:'NASDAQ',cur:'USD',
+   qty:0,buyPrice:0,fee:0,totalCost:0,curPrice:0,broker:'Gletir',buyDate:'',note:''},
+];
+const INV_NUM=['qty','buyPrice','fee','curPrice'];
+function invCost(iv){return Math.round(((parseFloat(iv.qty)||0)*(parseFloat(iv.buyPrice)||0)+(parseFloat(iv.fee)||0))*100)/100}
+function fmtInvDate(d){if(!d||!/^\d{4}-\d{2}-\d{2}$/.test(d))return'';const a=d.split('-');return a[2]+'/'+a[1]+'/'+a[0].slice(2)}
+// Reconcilia lo guardado en localStorage contra el seed:
+// lo editado a mano manda, pero los numéricos en 0/vacío y los campos nuevos
+// del esquema los completa el seed. Sin esto, editar el seed no cambia nada
+// en un browser que ya tenga jfin_invs guardado.
+function loadInvs(){
+  let saved=[];
+  try{const raw=localStorage.getItem('jfin_invs');if(raw)saved=JSON.parse(raw);}catch(e){saved=[];}
+  if(!Array.isArray(saved))saved=[];
+  const byId={};saved.forEach(x=>{if(x&&x.id)byId[x.id]=x;});
+  const out=INV_SEED.map(s=>{
+    const old=byId[s.id];delete byId[s.id];
+    if(!old)return Object.assign({},s);
+    // Metadata: manda el seed, pero SÓLO donde el seed trae valor. Los campos
+    // que el seed deja vacíos a propósito (fecha, tesis) los aporta localStorage.
+    const m=Object.assign({},old);
+    Object.keys(s).forEach(k=>{const v=s[k];if(v!==''&&v!==null&&v!==undefined)m[k]=v;});
+    // Los 4 numéricos: gana lo guardado a mano, salvo 0/vacío.
+    INV_NUM.forEach(f=>{const o=parseFloat(old[f]);m[f]=(o>0)?o:(parseFloat(s[f])||0);});
+    // Esquema viejo: `note` guardaba el bróker. Sin esto se mostraría como tesis.
+    if(m.note&&m.note===s.broker)m.note='';
+    m.totalCost=invCost(m);
+    return m;
+  });
+  Object.keys(byId).forEach(k=>out.push(byId[k]));  // posiciones extra cargadas a mano
+  return out;
+}
+
 // ── STATE ────────────────────────────────────────────────────────
 const S={
   tab:0,month:new Date().getMonth()+1,year:new Date().getFullYear(),
@@ -554,10 +602,7 @@ const S={
   budsheet:JSON.parse(localStorage.getItem('jfin_budsheet')||'[]'),
   _budErr:false,
   rfNpStr:'',rfCat:'Vivienda',rfMet:'Débito',rfEditId:null,
-  invs:JSON.parse(localStorage.getItem('jfin_invs')||JSON.stringify([
-    {id:'franklin',name:'Franklin NextStep Moderate N ACUM',isin:'LU1350352388',cur:'USD',qty:59.6,buyPrice:16.78,curPrice:17.50,note:'Itaú Inversiones'},
-    {id:'ttwo',name:'Take-Two Interactive (TTWO)',isin:'TTWO',cur:'USD',qty:0,buyPrice:0,curPrice:0,note:'Gletir'},
-  ])),
+  invs:loadInvs(),
 };
 
 // ── FORMAT ────────────────────────────────────────────────────────
@@ -1374,23 +1419,32 @@ function renderTabMas(){
 
   // Portfolio (siempre visible arriba)
   const totUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*parseFloat(iv.curPrice||0))*S.usdRate,0);
-  const costUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*parseFloat(iv.buyPrice||0))*S.usdRate,0);
+  const costUYU=S.invs.reduce((a,iv)=>a+invCost(iv)*S.usdRate,0);  // neto: incluye comisiones
   const pl=totUYU-costUYU;const plP=costUYU>0?((pl/costUYU)*100).toFixed(1):0;
 
   let h=`<div class="sec-div">Portfolio</div>
   <div class="port-total"><div class="pt-lbl">Valor total · UYU</div><div class="pt-val">${fU(totUYU)}</div><div class="pt-sub">${pl>=0?'▲ +':'▼ '}${fU(pl)} (${pl>=0?'+':''}${plP}%) · 1 USD = $U ${S.usdRate}</div></div>`;
 
   S.invs.forEach(iv=>{
-    const qty=parseFloat(iv.qty||0),buy=parseFloat(iv.buyPrice||0),cur=parseFloat(iv.curPrice||0);
-    const valUSD=qty*cur,costUSD=qty*buy,plUSD=valUSD-costUSD;
-    const plPI=costUSD>0?((plUSD/costUSD)*100).toFixed(1):0;
-    const abbr=iv.name.split(/[\s\/]/)[0].slice(0,4).toUpperCase();
-    h+=`<div class="pos-card"><div class="pos-top"><div class="pos-ticker">${abbr}</div><div class="pos-inf"><div class="pos-name">${esc(iv.name)}</div><div class="pos-sub">${esc(iv.isin)} · ${esc(iv.note||'')}</div></div><div class="pos-r"><div class="pos-uyu">${fU(valUSD*S.usdRate)}</div><div class="pos-pl ${plUSD>=0?'up':'dn'}">${plUSD>=0?'▲':'▼'} ${fUSD(Math.abs(plUSD))} (${plUSD>=0?'+':''}${plPI}%)</div></div></div>
+    const qty=parseFloat(iv.qty||0),buy=parseFloat(iv.buyPrice||0),cur=parseFloat(iv.curPrice||0),fee=parseFloat(iv.fee||0);
+    const valUSD=qty*cur;
+    const grossUSD=qty*buy,netUSD=invCost(iv);          // bruto = sin comisión, neto = costo total
+    const plG=valUSD-grossUSD,plGP=grossUSD>0?((plG/grossUSD)*100).toFixed(1):0;
+    const plN=valUSD-netUSD, plNP=netUSD>0?((plN/netUSD)*100).toFixed(1):0;
+    const abbr=(iv.ticker||iv.name.split(/[\s\/]/)[0]).slice(0,4).toUpperCase();
+    const sub=[iv.ticker||iv.isin,iv.broker,fmtInvDate(iv.buyDate)].filter(Boolean).join(' · ');
+    h+=`<div class="pos-card"><div class="pos-top"><div class="pos-ticker">${esc(abbr)}</div><div class="pos-inf"><div class="pos-name">${esc(iv.name)}</div><div class="pos-sub">${esc(sub)}</div></div><div class="pos-r"><div class="pos-uyu">${fU(valUSD*S.usdRate)}</div><div class="pos-pl ${plN>=0?'up':'dn'}" title="P&amp;L neto: valor de mercado menos el costo total con comisión">${plN>=0?'▲':'▼'} ${fUSD(Math.abs(plN))} (${plN>=0?'+':''}${plNP}%)</div></div></div>
     <div class="pos-grid">
-      <div><div class="pcl">Cuotas / Acc.</div><input type="number" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${qty||''}" placeholder="0" onchange="updInv('${iv.id}','qty',this.value)"></div>
-      <div><div class="pcl">Compra USD</div><input type="number" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${buy||''}" placeholder="0.00" onchange="updInv('${iv.id}','buyPrice',this.value)"></div>
-      <div><div class="pcl">Actual USD</div><input type="number" class="pos-inp" value="${cur||''}" placeholder="0.00" onchange="updInv('${iv.id}','curPrice',this.value)"></div>
-    </div></div>`;
+      <div><div class="pcl">Cantidad</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${qty||''}" placeholder="0" onchange="updInv('${iv.id}','qty',this.value)"></div>
+      <div><div class="pcl">Compra USD / u.</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${buy||''}" placeholder="0.00" onchange="updInv('${iv.id}','buyPrice',this.value)"></div>
+      <div><div class="pcl">Comisión USD</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${fee||''}" placeholder="0.00" onchange="updInv('${iv.id}','fee',this.value)"></div>
+      <div><div class="pcl">Último precio USD</div><input type="number" step="any" class="pos-inp" value="${cur||''}" placeholder="0.00" onchange="updInv('${iv.id}','curPrice',this.value)"></div>
+    </div>
+    <div class="pos-cb">
+      <div><div class="pcl">Valor mercado</div><div class="pcv">${fUSD(valUSD)}</div></div>
+      <div><div class="pcl" title="${qty} × ${fUSD(buy)}${fee>0?' + '+fUSD(fee)+' de comisión':''}">Costo total</div><div class="pcv">${fUSD(netUSD)}</div></div>
+      <div><div class="pcl" title="Sin descontar la comisión">P&amp;L bruto</div><div class="pcv ${plG>=0?'up':'dn'}">${plG>=0?'+':'−'}${fUSD(Math.abs(plG))}<span class="pct"> (${plG>=0?'+':''}${plGP}%)</span></div></div>
+    </div>${iv.note?`<div class="pos-note">${esc(iv.note)}</div>`:''}</div>`;
   });
 
   // Recurrentes (colapsable)
@@ -1463,7 +1517,7 @@ function toggleCollapse(id){
   try{localStorage.setItem('jfin_opens',JSON.stringify(opens));}catch(e){}
 }
 
-function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;saveInvs();renderTabMas();}}
+function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;iv.totalCost=invCost(iv);saveInvs();renderTabMas();}}
 function setBudgetInp(cat,v){const n=parseFloat(v)||0;apiSetBudget(cat,n);toast(n>0?'Tope guardado ✓':'Tope quitado');}
 function saveUrl(){const u=document.getElementById('c-url').value.trim();S.url=u;localStorage.setItem('jfin_url',u);toast(u?'URL guardada ✓':'URL eliminada');loadMovs();renderTabMas();}
 function saveRate(){const r=parseFloat(document.getElementById('c-usd').value)||43;S.usdRate=r;localStorage.setItem('jfin_usd',r);toast('Tipo de cambio actualizado');renderTabMas();}
