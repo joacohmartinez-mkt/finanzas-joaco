@@ -1248,7 +1248,8 @@ function buildBars(data){
 // Siempre sobre el mes calendario en curso, sin navegación de meses.
 // Semáforo sobre PROYECCIÓN a fin de mes, no sobre gastado:
 //   variables: proy = gastado × (días del mes / día actual)
-//   fijos (Es_gasto_fijo): sin registrar → "pendiente" y proy = tope; registrado → proy = gastado
+//   fijos (Es_gasto_fijo): sin registrar → "pendiente" y proy = tope; pago parcial → "parcial" y
+//     proy = tope (falta plata por pagar); pago completo o de más → proy = gastado
 //   días 1-2: proyección estadísticamente inútil → estado neutro
 function renderTab3(){
   const now=new Date(),cy=now.getFullYear(),cm=now.getMonth()+1;
@@ -1288,7 +1289,7 @@ function renderTab3(){
     let proy,estado='';
     if(noData){proy=0;estado='mut';}
     else if(b.fijo){
-      if(spent>0)proy=spent;
+      if(spent>0){proy=Math.max(spent,b.monto);if(spent<b.monto)estado='parc';}
       else{proy=b.monto;estado='pend';}
     }
     else if(early){proy=spent;estado='early';}
@@ -1300,7 +1301,7 @@ function renderTab3(){
     }
     return{c,b,spent,proy,pp,estado};
   });
-  const rank={red:0,amb:1,grn:2,early:3,pend:4,mut:5};
+  const rank={red:0,amb:1,grn:2,early:3,pend:4,parc:5,mut:6};
   rows.sort((a,b)=>rank[a.estado]-rank[b.estado]||b.pp-a.pp);
   h+=`<div class="chart-card" style="margin-top:12px"><div class="chart-title">Presupuesto vs proyección</div>`;
   rows.forEach(r=>{
@@ -1310,6 +1311,7 @@ function renderTab3(){
     if(noData){badge='sin datos';badgeCls='mut';sub='Sin datos aún · tope '+fU(r.b.monto);}
     else if(r.estado==='pend'){badge='pendiente';badgeCls='mut';sub=`Gasto fijo · ${fU(r.b.monto)} aún sin registrar`;}
     else if(r.estado==='early'){badge='recién arranca';badgeCls='mut';sub=`Llevás ${fU(r.spent)} de ${fU(r.b.monto)} · proyección desde el día 3`;}
+    else if(r.estado==='parc'){badge='parcial';badgeCls='mut';sub=`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)} · falta ${fU(r.b.monto-r.spent)}`;}
     else if(r.b.fijo){badge='pagado · '+Math.round(r.pp)+'%';badgeCls=r.estado;sub=`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)}`;}
     else{badge='termina en '+Math.round(r.pp)+'%';badgeCls=r.estado;sub=`Llevás ${fU(r.spent)} de ${fU(r.b.monto)} · así terminás en ${fU(r.proy)}`;}
     h+=`<div class="sem-row">
