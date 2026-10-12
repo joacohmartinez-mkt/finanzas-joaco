@@ -238,6 +238,36 @@ button,[role="button"]{touch-action:manipulation}
 .sem-track{height:5px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--brd);margin:7px 0 5px}
 .sem-fill{height:100%;border-radius:4px}
 .sem-sub{font-size:11px;color:var(--t3)}
+/* MARGEN REAL + FALTA PAGAR */
+.mg-lbl{font-size:12px;font-weight:600;color:var(--t2)}
+.mg-num{font-size:32px;font-weight:700;letter-spacing:-1px;line-height:1.2;margin-top:2px;color:var(--grn)}
+.mg-num.dn{color:var(--red)}
+.mg-sub{font-size:11px;color:var(--t3);margin-top:1px}
+.mg-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--bg);border:1px solid var(--brd);margin:14px 0 12px}
+.mg-bar>div{height:100%}
+.mg-leg{display:grid;grid-template-columns:10px 1fr auto;gap:7px 9px;align-items:center;font-size:12px;color:var(--t2)}
+.mg-leg i{width:10px;height:10px;border-radius:3px;display:block}
+.mg-leg b{font-weight:600;color:var(--t1);text-align:right}
+.sim-row{display:flex;gap:8px}
+.sim-inp,.sim-sel{height:42px;border:1px solid var(--brd);border-radius:var(--rs);background:var(--bg);color:var(--t1);font-family:'Inter',sans-serif;font-size:16px;padding:0 10px;min-width:0}
+.sim-inp{width:112px;flex-shrink:0}.sim-sel{flex:1;font-size:13px}
+.sim-res{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.45}
+.sim-res.ok{color:var(--grnT)}.sim-res.bad{color:var(--redT)}
+.fp-hdr{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px}
+.fp-row{display:flex;align-items:center;gap:10px;width:100%;padding:11px 0;border:none;border-top:1px solid var(--brd);background:none;font-family:'Inter',sans-serif;text-align:left;cursor:pointer;color:var(--t1)}
+.fp-row:active{background:var(--bg)}
+.fp-dot{width:16px;height:16px;border-radius:50%;border:2px solid #c9c9c6;flex-shrink:0}
+.fp-dot.ok{border-color:var(--grn);background:var(--grn)}
+.fp-inf{flex:1;min-width:0}
+.fp-name{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-when{font-size:11px;color:var(--t3);display:block;margin-top:1px}
+.fp-amt{font-size:13.5px;font-weight:600;flex-shrink:0}
+.fp-chev{color:var(--t3);font-size:16px;flex-shrink:0}
+.fp-paid{display:flex;align-items:center;gap:10px;padding:11px 0 2px;border-top:1px solid var(--brd);font-size:12px;color:var(--t2)}
+.fp-paid .fp-names{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-note{font-size:12px;color:var(--t3);padding:6px 0 2px;line-height:1.45}
+.saldo-row.link{cursor:pointer}
+.saldo-pend{color:rgba(255,255,255,.4);font-size:12px}
 .fijo-tag{font-size:9px;font-weight:700;color:var(--t3);background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:1px 5px;margin-left:5px;vertical-align:1px;text-transform:uppercase;letter-spacing:.4px}
 .budget-pct{font-size:11px;font-weight:600;width:36px;text-align:right;flex-shrink:0}
 .budget-pct.ok{color:var(--grn)}.budget-pct.warn{color:var(--acc)}.budget-pct.over{color:var(--red)}
@@ -485,7 +515,7 @@ button,[role="button"]{touch-action:manipulation}
   <div class="sheet">
     <div class="handle"></div>
     <div class="sheet-hdr">
-      <span class="sheet-ttl" id="rec-form-ttl">Nuevo recurrente</span>
+      <span class="sheet-ttl" id="rec-form-ttl">Nuevo gasto fijo</span>
       <button class="sheet-close" onclick="closeOv(null,'ov-rec')">×</button>
     </div>
     <div class="sheet-body">
@@ -514,10 +544,14 @@ button,[role="button"]{touch-action:manipulation}
       </div>
       <div class="fg">
         <label class="fg-lbl">Día del mes</label>
-        <input class="fi" type="number" id="rf-day" placeholder="Ej: 1, 15, 28" min="1" max="31" inputmode="numeric">
+        <input class="fi" type="number" id="rf-day" placeholder="Vacío = fin de mes" min="1" max="31" inputmode="numeric">
       </div>
-      <button class="savebtn" onclick="saveRec()">Guardar recurrente</button>
-      <button class="delbtn" id="del-rec-btn" onclick="askDelRec()" style="display:none">🗑 Eliminar recurrente</button>
+      <div class="fg">
+        <label class="fg-lbl" title="La app da el fijo por pago cuando un gasto de esa categoría tiene esta palabra en el motivo. Vacío = usa el nombre. Varias, separadas por coma.">Palabra clave</label>
+        <input class="fi" type="text" id="rf-clave" placeholder="Opcional · cómo lo anotás (ej: ute)" autocapitalize="off" autocomplete="off">
+      </div>
+      <button class="savebtn" onclick="saveRec()">Guardar</button>
+      <button class="delbtn" id="del-rec-btn" onclick="askDelRec()" style="display:none">🗑 Eliminar</button>
     </div>
   </div>
 </div>
@@ -586,6 +620,58 @@ function loadInvs(){
   return out;
 }
 
+// ── FIJOS + MARGEN (lógica pura) — testeada en tests/margen.test.js, sin S ni DOM ──
+function normTxt(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+// La clave tiene que arrancar una palabra; las de menos de 4 letras, ser la palabra entera
+// ("ute" no tiene que matchear "utensilios"). Varias claves separadas por coma.
+function claveMatch(motivo,clave){
+  const t=normTxt(motivo);
+  return normTxt(clave).split(',').map(k=>k.trim()).filter(Boolean).some(k=>{
+    const ek=k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    return new RegExp('(^|[^a-z0-9])'+ek+(k.length<4?'([^a-z0-9]|$)':'')).test(t);
+  });
+}
+// Matchea por la clave y también por el nombre: pagar desde la lista anota el nombre como motivo.
+function fijoPagado(f,movs){
+  const clave=(f.clave||'')+','+(f.nombre||'');
+  return (movs||[]).filter(m=>m.tipo==='EGRESO'&&m.categoria===f.categoria&&claveMatch(m.motivo,clave)).reduce((a,m)=>a+(parseFloat(m.monto)||0),0);
+}
+// Por fijo: lo pagado este mes, si sigue pendiente, y el estimado
+// (lo pagado; si falta, lo del mes anterior; si no hay, el monto de la lista).
+function fijosEstado(fijos,movs,prevMovs){
+  return (fijos||[]).map(f=>{
+    const pagado=fijoPagado(f,movs),pend=pagado<=0;
+    return{f,pagado,pend,est:pend?(fijoPagado(f,prevMovs)||parseFloat(f.monto)||0):pagado};
+  });
+}
+// margen = ingresos − egresos − fijos pendientes − lo que queda de cada tope variable.
+// Las categorías marcadas fijas no reservan nada más allá de sus fijos.
+function calcMargen(movs,buds,fijos,prevMovs){
+  let ing=0,egr=0;const catT={};
+  (movs||[]).forEach(m=>{const v=parseFloat(m.monto)||0;if(m.tipo==='INGRESO')ing+=v;else if(m.tipo==='EGRESO'){egr+=v;catT[m.categoria]=(catT[m.categoria]||0)+v;}});
+  const items=fijosEstado(fijos,movs,prevMovs);
+  const pendCat={};let falta=0,nPend=0;
+  items.forEach(x=>{if(x.pend){falta+=x.est;nPend++;pendCat[x.f.categoria]=(pendCat[x.f.categoria]||0)+x.est;}});
+  const resto={};let reservado=0;
+  Object.keys(buds||{}).forEach(c=>{
+    if(buds[c].fijo)return;
+    resto[c]=Math.max(0,buds[c].monto-(catT[c]||0)-(pendCat[c]||0));
+    reservado+=resto[c];
+  });
+  return{ing,egr,falta,reservado,margen:ing-egr-falta-reservado,nPend,items,resto,catT};
+}
+function simGasto(mg,monto,cat){
+  const a=Math.max(0,parseFloat(monto)||0),deTope=Math.min(a,mg.resto[cat]||0);
+  return{deTope,deMargen:a-deTope,margen:mg.margen-(a-deTope)};
+}
+// Proyección de una categoría que tiene fijos; null = sin fijos, vale la regla de siempre.
+function proyCat(b,spent,its,dim,day){
+  if(!its.length)return null;
+  const pag=its.reduce((a,x)=>a+x.pagado,0),pen=its.reduce((a,x)=>a+(x.pend?x.est:0),0);
+  return b.fijo?spent+pen:Math.max(0,spent-pag)*dim/day+pag+pen;
+}
+// ── /FIJOS + MARGEN ──
+
 // ── STATE ────────────────────────────────────────────────────────
 const S={
   tab:0,month:new Date().getMonth()+1,year:new Date().getFullYear(),
@@ -598,7 +684,8 @@ const S={
   key:localStorage.getItem('jfin_key')||'',
   usdRate:parseFloat(localStorage.getItem('jfin_usd')||'43'),
   goal:{amt:parseFloat(localStorage.getItem('jfin_goal')||'0'),cur:localStorage.getItem('jfin_gcur')||'UYU'},
-  recurrentes:JSON.parse(localStorage.getItem('jfin_rec')||'[]'),
+  fijos:JSON.parse(localStorage.getItem('jfin_fijos')||'[]'),
+  _fijErr:false,_invErr:false,simAmt:'',simCat:'',
   budsheet:JSON.parse(localStorage.getItem('jfin_budsheet')||'[]'),
   _budErr:false,
   rfNpStr:'',rfCat:'Vivienda',rfMet:'Débito',rfEditId:null,
@@ -627,7 +714,7 @@ function ck(m,y){return`jfin3_${y||S.year}_${m||S.month}`}
 function sc(d,m,y){try{localStorage.setItem(ck(m,y),JSON.stringify(d))}catch(e){}}
 function lc(m,y){try{const d=localStorage.getItem(ck(m,y));return d?JSON.parse(d):null}catch(e){return null}}
 function saveInvs(){try{localStorage.setItem('jfin_invs',JSON.stringify(S.invs))}catch(e){}}
-function saveRecs(){try{localStorage.setItem('jfin_rec',JSON.stringify(S.recurrentes))}catch(e){}}
+function saveFijos(){try{localStorage.setItem('jfin_fijos',JSON.stringify(S.fijos))}catch(e){}}
 function saveBudSheet(){try{localStorage.setItem('jfin_budsheet',JSON.stringify(S.budsheet))}catch(e){}}
 function curMonthFirst(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-01'}
 // Presupuesto vigente: por categoría, la fila con Vigente_desde <= 1° del mes más reciente
@@ -641,8 +728,6 @@ function vigenteBudgets(first){
   S.budsheet.forEach(b=>{if(b.desde<=first&&b.monto>0&&(!map[b.categoria]||b.desde>map[b.categoria].desde))map[b.categoria]=b;});
   return map;
 }
-function getRecDone(m,y){try{return JSON.parse(localStorage.getItem(`jfin_recdone_${y||S.year}_${m||S.month}`)||'[]')}catch(e){return[]}}
-function markRecDone(id,m,y){const d=getRecDone(m,y);if(!d.includes(id)){d.push(id);try{localStorage.setItem(`jfin_recdone_${y||S.year}_${m||S.month}`,JSON.stringify(d))}catch(e){}}}
 
 // ── EXCHANGE RATE AUTO ─────────────────────────────────────────────
 async function fetchRate(){
@@ -678,8 +763,10 @@ async function apiBudgets(){
   const r=await af({action:'budgets'});
   if(r&&r.auth===false){showLogin();return;}
   if(r&&r.status==='ok'&&Array.isArray(r.budgets)){
+    // Re-renderiza sólo si cambió algo: un render de más borra lo que se esté tipeando en el simulador
+    const ch=S._budErr||JSON.stringify(r.budgets)!==JSON.stringify(S.budsheet);
     S.budsheet=r.budgets;S._budErr=false;saveBudSheet();
-    if(S.tab===3)renderTab3();else if(S.tab===2)renderTabMas();
+    if(ch&&S.tab!==1)renderContent();
   }else if(r&&r.status==='error'){
     // Backend sin la action nueva (falta redeploy del Apps Script)
     S._budErr=true;
@@ -704,6 +791,61 @@ async function apiSetBudget(cat,monto){
     toast('No se pudo guardar en el Sheet');
     apiBudgets();
   }
+}
+
+// Gastos fijos e inversiones: viven en el Sheet (hojas Fijos / Inversiones), localStorage es caché.
+function isUnknownAction(r){return !!(r&&r.status==='error'&&/desconocida/i.test(r.message||''))}
+async function apiFijos(){
+  if(!S.url||!S.key)return;
+  const r=await af({action:'fijos'});
+  if(r&&r.auth===false){showLogin();return;}
+  if(r&&r.status==='ok'&&Array.isArray(r.fijos)){
+    const ch=S._fijErr||JSON.stringify(r.fijos)!==JSON.stringify(S.fijos);
+    S.fijos=r.fijos;S._fijErr=false;saveFijos();
+    if(ch&&S.tab!==1)renderContent();
+  }else if(isUnknownAction(r)&&!S._fijErr){S._fijErr=true;if(S.tab!==1)renderContent();}
+}
+async function apiSetFijo(f){
+  const i=S.fijos.findIndex(x=>x.id===f.id);
+  if(i>=0)S.fijos[i]=f;else S.fijos.push(f);
+  saveFijos();renderContent();
+  if(!S.url)return;
+  const r=await af({action:'setfijo',...f,dia:f.dia||''});
+  if(r&&r.auth===false){showLogin();return;}
+  if(!r||r.status!=='ok'){if(isUnknownAction(r))S._fijErr=true;toast('No se pudo guardar en el Sheet');apiFijos();}
+}
+async function apiDelFijo(id){
+  S.fijos=S.fijos.filter(x=>x.id!==id);saveFijos();renderContent();
+  if(!S.url)return;
+  const r=await af({action:'delfijo',id});
+  if(r&&r.auth===false){showLogin();return;}
+  if(!r||r.status!=='ok'){toast('No se pudo borrar en el Sheet');apiFijos();}
+}
+// La Sheet manda. Si no tiene la posición (o la tiene en cero) y este dispositivo sí tiene montos, se suben.
+async function apiInvs(){
+  if(!S.url||!S.key)return;
+  const r=await af({action:'invs'});
+  if(r&&r.auth===false){showLogin();return;}
+  if(isUnknownAction(r)){if(!S._invErr){S._invErr=true;if(S.tab===2)renderTabMas();}return;}
+  if(!(r&&r.status==='ok'&&Array.isArray(r.invs)))return;
+  const byId={};r.invs.forEach(x=>byId[x.id]=x);
+  let ch=S._invErr;S._invErr=false;
+  S.invs.forEach(iv=>{
+    const sh=byId[iv.id];
+    if(sh&&INV_NUM.some(k=>sh[k]>0)){
+      INV_NUM.forEach(k=>{if((parseFloat(iv[k])||0)!==sh[k]){iv[k]=sh[k];ch=true;}});
+      if((iv.buyDate||'')!==sh.buyDate){iv.buyDate=sh.buyDate;ch=true;}
+      if((iv.note||'')!==sh.note){iv.note=sh.note;ch=true;}
+      iv.totalCost=invCost(iv);
+    }else if(INV_NUM.some(k=>parseFloat(iv[k])>0))apiSetInv(iv);
+  });
+  if(ch){saveInvs();if(S.tab===2)renderTabMas();}
+}
+async function apiSetInv(iv){
+  if(!S.url)return;
+  const r=await af({action:'setinv',id:iv.id,nombre:iv.name,qty:iv.qty||0,buyPrice:iv.buyPrice||0,fee:iv.fee||0,curPrice:iv.curPrice||0,buyDate:iv.buyDate||'',note:iv.note||''});
+  if(r&&r.auth===false){showLogin();return;}
+  if(!r||r.status!=='ok'){if(isUnknownAction(r))S._invErr=true;toast('No se pudo guardar en el Sheet');}
 }
 
 // ── PERIOD ────────────────────────────────────────────────────────
@@ -752,6 +894,14 @@ function renderTab0(){
   const ing=S.movs.filter(m=>m.tipo==='INGRESO').reduce((a,m)=>a+parseFloat(m.monto||0),0);
   const egr=S.movs.filter(m=>m.tipo==='EGRESO').reduce((a,m)=>a+parseFloat(m.monto||0),0);
   const bal=ing-egr;
+  // Margen real: sólo viendo el mes en curso y con algo configurado (topes o fijos)
+  const mgRow=(()=>{
+    const x=mesActualCtx();
+    if(S.month!==x.cm||S.year!==x.cy||(!S.fijos.length&&!S.budsheet.length))return'';
+    const mg=margenActual();
+    const pend=mg.nPend?` · ${mg.nPend===1?'falta 1 pago':'faltan '+mg.nPend+' pagos'}`:'';
+    return `<div class="saldo-row link" onclick="setTab(3)"><div class="saldo-row-l"><div class="saldo-ico n">◔</div><span>Margen real<span class="saldo-pend">${pend}</span></span></div><div class="saldo-val ${mg.margen>=0?'g':'r'}${S.hideBal?' amt-hidden':''}">${mg.margen>=0?'+':'−'}${fU(Math.abs(mg.margen))} ›</div></div>`;
+  })();
   let h=`<div class="home-card">
     <div class="saldo-top">
       <button class="saldo-eye" onclick="toggleBal()" title="${S.hideBal?'Mostrar montos':'Ocultar montos'}" aria-label="${S.hideBal?'Mostrar montos':'Ocultar montos'}">${S.hideBal?'👁️':'🙈'}</button>
@@ -762,37 +912,13 @@ function renderTab0(){
       <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico g">↑</div>Ingresos</div><div class="saldo-val g${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(ing)}</div></div>
       <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico r">↓</div>Gastos</div><div class="saldo-val r${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(egr)}</div></div>
       <div class="saldo-row"><div class="saldo-row-l"><div class="saldo-ico n">⚖</div>Balance</div><div class="saldo-val ${bal>0?'g':bal<0?'r':''}${S.hideBal?' amt-hidden':''}" onclick="toggleBal()">${fU(bal)}</div></div>
+      ${mgRow}
     </div>
     <div class="action-btns">
       <button class="act-btn egr" onclick="openAddTipo('EGRESO')">▼ Gasto</button>
       <button class="act-btn ing" onclick="openAddTipo('INGRESO')">▲ Ingreso</button>
     </div>
   </div>`;
-
-  // Recurrentes banner
-  const done=getRecDone();
-  const pending=S.recurrentes.filter(r=>!done.includes(r.id));
-  if(pending.length){
-    h+=`<div class="rec-banner">
-      <div class="rec-banner-hdr">
-        <div class="rec-banner-ttl">🔁 Recurrentes pendientes <span class="rec-badge-cnt">${pending.length}</span></div>
-        <button class="rec-add-all" onclick="addAllRec()">Agregar todos</button>
-      </div>
-      <div class="rec-banner-items">`;
-    pending.forEach(r=>{
-      h+=`<div class="rec-item-row">
-        <div class="rec-item-l">
-          <span class="rec-item-ico">${ICO[r.categoria]||'📌'}</span>
-          <span class="rec-item-name">${esc(r.name)}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="rec-item-amt">${fU(r.amount)}</span>
-          <button class="rec-add-btn" onclick="addRecItem('${esc(r.id)}')">+ Agregar</button>
-        </div>
-      </div>`;
-    });
-    h+=`</div></div>`;
-  }
 
   if(S.loading&&!S.movs.length){h+='<div class="spin"></div>';document.getElementById('tc').innerHTML=h;return;}
   const movs=[...S.movs].sort((a,b)=>b.fecha.localeCompare(a.fecha)||b.id.localeCompare(a.id));
@@ -812,18 +938,6 @@ function renderTab0(){
 }
 
 function toggleAmt(id){const el=document.getElementById('amt-'+id),btn=document.getElementById('tog-'+id);if(!el)return;const show=el.style.display==='none';el.style.display=show?'block':'none';if(btn)btn.textContent=show?'▲':'▼';}
-
-// Recurrentes actions
-function addRecItem(id){
-  const r=S.recurrentes.find(x=>x.id===id);if(!r)return;
-  const fecha=todayS();
-  const m={id:Date.now()+Math.random().toString(36).slice(2,5),fecha,tipo:'EGRESO',categoria:r.categoria,motivo:r.name,monto:r.amount,moneda:'UYU',metodo:r.metodo,nota:'Recurrente'};
-  apiAdd(m);markRecDone(id);toast(r.name+' agregado ✓');
-}
-function addAllRec(){
-  const done=getRecDone();
-  S.recurrentes.filter(r=>!done.includes(r.id)).forEach(r=>addRecItem(r.id));
-}
 
 // ── TAB 1: DASHBOARD ──────────────────────────────────────────────
 function setPeriod(p){
@@ -1251,6 +1365,84 @@ function buildBars(data){
 //   fijos (Es_gasto_fijo): sin registrar → "pendiente" y proy = tope; pago parcial → "parcial" y
 //     proy = tope (falta plata por pagar); pago completo o de más → proy = gastado
 //   días 1-2: proyección estadísticamente inútil → estado neutro
+//   categorías con gastos fijos definidos (hoja Fijos): la proyección suma los pendientes reales
+//     en vez del tope entero (ver proyCat)
+// Arriba: margen real del mes, simulador de gasto y lista de fijos que faltan pagar.
+function mesActualCtx(){const n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;return{cy,cm,py:cm===1?cy-1:cy,pm:cm===1?12:cm-1,day:n.getDate(),dim:new Date(cy,cm,0).getDate(),first:cy+'-'+p2(cm)+'-01'};}
+// Movs del mes anterior, para estimar los fijos pendientes. Se refrescan una vez por sesión.
+function prevMovsActual(){
+  const x=mesActualCtx(),c=lc(x.pm,x.py);
+  if(S.url&&S.key&&!S._pmf){
+    S._pmf=true;
+    af({action:'get',month:x.pm,year:x.py}).then(r=>{
+      if(!r||r.status!=='ok')return;
+      const ch=JSON.stringify(r.data||[])!==JSON.stringify(c||[]);
+      sc(r.data||[],x.pm,x.py);
+      if(ch&&(S.tab===0||S.tab===3))renderContent();
+    });
+  }
+  return c||[];
+}
+function margenActual(){const x=mesActualCtx();return calcMargen(dataFor(x.cm,x.cy),vigenteBudgets(x.first),S.fijos,prevMovsActual());}
+const MG_COL={pag:'#94a3b8',fal:'#d97706',res:'#2563eb',sim:'#ea580c',mar:'#16a34a'};
+function mgCardInner(mg,sim){
+  const a=sim?sim.deTope+sim.deMargen:0,res=mg.reservado-(sim?sim.deTope:0),mar=sim?sim.margen:mg.margen;
+  const tot=Math.max(mg.ing,mg.egr+mg.falta+res+a+Math.max(0,mar))||1;
+  const HID=S.hideBal?' amt-hidden':'',REV=S.hideBal?' onclick="toggleBal()"':'';
+  const seg=(v,c)=>v>0?`<div style="width:${(v/tot*100).toFixed(2)}%;background:${c}"></div>`:'';
+  const leg=(c,l,v)=>`<i style="background:${c}"></i><span>${l}</span><b class="${HID.trim()}"${REV}>${v}</b>`;
+  return `<div class="mg-lbl">Margen real del mes</div>
+  <div class="mg-num${mar<0?' dn':''}${HID}"${REV}>${mar<0?'−':'+'}${fU(Math.abs(mar))}</div>
+  <div class="mg-sub">Lo que te sobra pagando todo y usando tus topes</div>
+  <div class="mg-bar">${seg(mg.egr,MG_COL.pag)}${seg(mg.falta,MG_COL.fal)}${seg(res,MG_COL.res)}${seg(a,MG_COL.sim)}${seg(mar,MG_COL.mar)}</div>
+  <div class="mg-leg">${leg(MG_COL.pag,'Ya pagado',fU(mg.egr))}${leg(MG_COL.fal,'Falta pagar',fU(mg.falta))}${leg(MG_COL.res,'Reservado en topes',fU(res))}${a>0?leg(MG_COL.sim,'Gasto simulado',fU(a)):''}${leg(MG_COL.mar,'Margen real',(mar<0?'−':'')+fU(Math.abs(mar)))}</div>`;
+}
+function simRes(mg){
+  const a=parseFloat(S.simAmt)||0;
+  if(a<=0)return{cls:'',txt:'No guarda nada: sólo muestra con cuánto cerrás.'};
+  const s=simGasto(mg,a,S.simCat);
+  const de=s.deTope>0?`${fU(s.deTope)} salen del tope de ${S.simCat}${s.deMargen>0?' y '+fU(s.deMargen)+' del margen':''}. `:'Sale entero del margen. ';
+  return s.margen>=0?{cls:'ok',txt:de+'Cerrás el mes con +'+fU(s.margen)+'.',s}:{cls:'bad',txt:de+'Te pasás del presupuesto por '+fU(-s.margen)+'.',s};
+}
+function buildSim(mg){
+  const cats=Object.keys(mg.resto).filter(c=>mg.resto[c]>0).sort((a,b)=>mg.resto[b]-mg.resto[a]);
+  if(S.simCat&&!cats.includes(S.simCat))S.simCat='';
+  const r=simRes(mg);
+  return `<div class="chart-card"><div class="chart-title">Simular un gasto</div>
+  <div class="sim-row"><input class="sim-inp" type="number" inputmode="decimal" min="0" id="sim-amt" placeholder="Monto" value="${esc(S.simAmt)}" oninput="simUpd()" aria-label="Monto a simular">
+  <select class="sim-sel" id="sim-cat" onchange="simUpd()" aria-label="Categoría del gasto"><option value="">Fuera de presupuesto</option>${cats.map(c=>`<option value="${esc(c)}"${S.simCat===c?' selected':''}>${esc(c)}${S.hideBal?'':' · quedan '+fU(mg.resto[c])}</option>`).join('')}</select></div>
+  <div class="sim-res ${r.cls}${S.hideBal&&r.s?' amt-hidden':''}" id="sim-res">${esc(r.txt)}</div></div>`;
+}
+// Actualiza sólo la tarjeta de margen y el resultado: un render completo le saca el foco al input.
+function simUpd(){
+  const mg=S._mg;if(!mg)return;
+  S.simAmt=document.getElementById('sim-amt').value;S.simCat=document.getElementById('sim-cat').value;
+  const r=simRes(mg),el=document.getElementById('sim-res');
+  el.className='sim-res '+r.cls+(S.hideBal&&r.s?' amt-hidden':'');el.textContent=r.txt;
+  document.getElementById('mg-card').innerHTML=mgCardInner(mg,r.s);
+}
+function buildFaltaPagar(mg){
+  const HID=S.hideBal?' amt-hidden':'';
+  let h=`<div class="chart-card">`;
+  if(S._fijErr)h+=`<div class="fp-note" style="color:var(--redT)">⚠️ El Apps Script no tiene la versión con gastos fijos. Pegá el backend.gs nuevo y publicá una versión.</div>`;
+  if(!mg.items.length)return h+`<div class="fp-hdr"><span>Falta pagar</span></div><div class="fp-note">Cargá alquiler, servicios y suscripciones en Más → Gastos fijos y acá vas a ver cuáles faltan.</div></div>`;
+  const pen=mg.items.filter(x=>x.pend).sort((a,b)=>(a.f.dia||32)-(b.f.dia||32));
+  const pag=mg.items.filter(x=>!x.pend);
+  h+=`<div class="fp-hdr"><span>Falta pagar</span><span class="${HID.trim()}">${fU(mg.falta)}</span></div>`;
+  if(!pen.length)h+=`<div class="fp-note">Todos los fijos del mes están pagos.</div>`;
+  pen.forEach(x=>{
+    h+=`<button class="fp-row" onclick="payFijo('${esc(x.f.id)}')"><span class="fp-dot"></span><span class="fp-inf"><span class="fp-name">${esc(x.f.nombre)}</span><span class="fp-when">${x.f.dia?'Día '+x.f.dia:'Fin de mes'}</span></span><span class="fp-amt${HID}">${x.est!==x.f.monto?'~':''}${fU(x.est)}</span><span class="fp-chev">›</span></button>`;
+  });
+  if(pag.length)h+=`<div class="fp-paid"><span class="fp-dot ok"></span><span class="fp-names">Pagado (${pag.length}): ${esc(pag.map(x=>x.f.nombre).join(', '))}</span><span class="${HID.trim()}">${fU(pag.reduce((a,x)=>a+x.pagado,0))}</span></div>`;
+  return h+`</div>`;
+}
+// Abre el formulario de movimiento ya completo con el fijo pendiente
+function payFijo(id){
+  const x=S._mg&&S._mg.items.find(i=>i.f.id===id);if(!x)return;
+  openAdd();S.cat=x.f.categoria;renderCatGrid();
+  S.npStr=String(Math.round(x.est));renderAmtNum();setMet(x.f.metodo||'Débito');
+  document.getElementById('f-motivo').value=x.f.nombre;
+}
 function renderTab3(){
   const now=new Date(),cy=now.getFullYear(),cm=now.getMonth()+1;
   const day=now.getDate(),dim=new Date(cy,cm,0).getDate();
@@ -1262,17 +1454,16 @@ function renderTab3(){
   }
   const HID=S.hideBal?' amt-hidden':'';
   const REV=S.hideBal?' onclick="event.stopPropagation();toggleBal()"':'';
-  const t=sumIE(movs);
+  const buds=vigenteBudgets(first);
+  const mg=calcMargen(movs,buds,S.fijos,prevMovsActual());
+  S._mg=mg;
   let h=`<div class="sem-day">Día ${day} de ${dim}</div>
-  <div class="stats-row three">
-    <div class="stat-card"><div class="stat-lbl">Ingresos</div><div class="stat-val sm up${HID}"${REV}>${fU(t.ing)}</div></div>
-    <div class="stat-card"><div class="stat-lbl">Egresos</div><div class="stat-val sm dn${HID}"${REV}>${fU(t.egr)}</div></div>
-    <div class="stat-card"><div class="stat-lbl">Diferencia</div><div class="stat-val sm ${t.bal>0?'up':t.bal<0?'dn':''}${HID}"${REV}>${t.bal>0?'+':''}${fU(t.bal)}</div></div>
-  </div>`;
+  <div class="chart-card" id="mg-card">${mgCardInner(mg,simRes(mg).s)}</div>
+  ${buildSim(mg)}
+  ${buildFaltaPagar(mg)}`;
   if(S._budErr){
     h+=`<div class="chart-card" style="margin-top:12px;padding:12px 14px;display:flex;gap:10px;align-items:center"><span style="font-size:18px;flex-shrink:0">⚠️</span><span style="font-size:12px;color:var(--t2);line-height:1.4">El Apps Script no tiene la versión con presupuestos. Pegá el backend.gs nuevo y redeployá.</span></div>`;
   }
-  const buds=vigenteBudgets(first);
   const cats=Object.keys(buds);
   if(!cats.length){
     const fut=S.budsheet.filter(b=>b.desde>first&&b.monto>0).map(b=>b.desde).sort()[0];
@@ -1286,8 +1477,14 @@ function renderTab3(){
   const early=day<=2;
   const rows=cats.map(c=>{
     const b=buds[c],spent=catT[c]||0;
+    const its=mg.items.filter(x=>x.f.categoria===c),pen=its.filter(x=>x.pend);
     let proy,estado='';
     if(noData){proy=0;estado='mut';}
+    else if(its.length){
+      if(b.fijo){proy=proyCat(b,spent,its,dim,day);if(pen.length)estado=spent>0?'parc':'pend';}
+      else if(early){proy=spent+pen.reduce((a,x)=>a+x.est,0);estado='early';}
+      else proy=proyCat(b,spent,its,dim,day);
+    }
     else if(b.fijo){
       if(spent>0){proy=Math.max(spent,b.monto);if(spent<b.monto)estado='parc';}
       else{proy=b.monto;estado='pend';}
@@ -1299,7 +1496,7 @@ function renderTab3(){
       if(b.fijo)estado=pp<=100?'grn':pp<=110?'amb':'red';
       else estado=pp<90?'grn':pp<=110?'amb':'red';
     }
-    return{c,b,spent,proy,pp,estado};
+    return{c,b,spent,proy,pp,estado,pen};
   });
   const rank={red:0,amb:1,grn:2,early:3,pend:4,parc:5,mut:6};
   rows.sort((a,b)=>rank[a.estado]-rank[b.estado]||b.pp-a.pp);
@@ -1309,9 +1506,9 @@ function renderTab3(){
     const barCol=r.estado==='grn'?'var(--grn)':r.estado==='amb'?'var(--acc)':r.estado==='red'?'var(--red)':'#94a3b8';
     let badge,badgeCls,sub;
     if(noData){badge='sin datos';badgeCls='mut';sub='Sin datos aún · tope '+fU(r.b.monto);}
-    else if(r.estado==='pend'){badge='pendiente';badgeCls='mut';sub=`Gasto fijo · ${fU(r.b.monto)} aún sin registrar`;}
+    else if(r.estado==='pend'){badge='pendiente';badgeCls='mut';sub=r.pen.length?`Gasto fijo · falta ${esc(r.pen.map(x=>x.f.nombre).join(', '))}`:`Gasto fijo · ${fU(r.b.monto)} aún sin registrar`;}
     else if(r.estado==='early'){badge='recién arranca';badgeCls='mut';sub=`Llevás ${fU(r.spent)} de ${fU(r.b.monto)} · proyección desde el día 3`;}
-    else if(r.estado==='parc'){badge='parcial';badgeCls='mut';sub=`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)} · falta ${fU(r.b.monto-r.spent)}`;}
+    else if(r.estado==='parc'){badge='parcial';badgeCls='mut';sub=r.pen.length?`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)} · falta ${esc(r.pen.map(x=>x.f.nombre).join(', '))}`:`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)} · falta ${fU(r.b.monto-r.spent)}`;}
     else if(r.b.fijo){badge='pagado · '+Math.round(r.pp)+'%';badgeCls=r.estado;sub=`Gasto fijo · ${fU(r.spent)} de ${fU(r.b.monto)}`;}
     else{badge='termina en '+Math.round(r.pp)+'%';badgeCls=r.estado;sub=`Llevás ${fU(r.spent)} de ${fU(r.b.monto)} · así terminás en ${fU(r.proy)}`;}
     h+=`<div class="sem-row">
@@ -1342,67 +1539,61 @@ function renderTab3(){
   document.getElementById('tc').innerHTML=h;
 }
 
-// Recurrentes list helper - usado dentro de Más (renderTabMas)
-function buildRecList(){
-  let h=`<button class="add-rec-btn" onclick="openAddRec()">+ Nuevo gasto recurrente</button>`;
-  if(!S.recurrentes.length){
-    h+=`<div class="empty" style="padding:24px 12px"><div class="empty-ico">🔁</div><div class="empty-ttl">Sin recurrentes</div><div class="empty-sub">Alquiler, Box, suscripciones…</div></div>`;
+// Lista de gastos fijos - usada dentro de Más (renderTabMas)
+function buildFijosList(){
+  let h=S._fijErr?`<div style="font-size:11px;color:var(--redT);background:var(--redl);border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.4">⚠️ El Apps Script no tiene la versión con gastos fijos: los cambios no se van a guardar en el Sheet hasta publicar la versión nueva.</div>`:'';
+  h+=`<button class="add-rec-btn" onclick="openAddRec()">+ Nuevo gasto fijo</button>`;
+  if(!S.fijos.length){
+    h+=`<div class="empty" style="padding:24px 12px"><div class="empty-ico">📌</div><div class="empty-ttl">Sin gastos fijos</div><div class="empty-sub">Alquiler, servicios, suscripciones…</div></div>`;
     return h;
   }
-  const done=getRecDone();
-  S.recurrentes.forEach(r=>{
-    const isDone=done.includes(r.id);
-    h+=`<div class="rec-card">
+  const est={};margenActual().items.forEach(x=>est[x.f.id]=x);
+  S.fijos.forEach(f=>{
+    const pago=est[f.id]&&!est[f.id].pend;
+    h+=`<div class="rec-card" onclick="openEditRec('${esc(f.id)}')" style="cursor:pointer">
       <div class="rec-card-main">
-        <div class="rec-card-ico">${ICO[r.categoria]||'📌'}</div>
+        <div class="rec-card-ico">${ICO[f.categoria]||'📌'}</div>
         <div class="rec-card-info">
-          <div class="rec-card-name">${esc(r.name)}</div>
-          <div class="rec-card-sub">${esc(r.categoria)} · ${esc(r.metodo)}${r.dayOfMonth?' · Día '+r.dayOfMonth:''}</div>
+          <div class="rec-card-name">${esc(f.nombre)}</div>
+          <div class="rec-card-sub">${esc(f.categoria)} · ${f.dia?'Día '+f.dia:'Fin de mes'}</div>
         </div>
         <div class="rec-card-right">
-          <div class="rec-card-amt">${fU(r.amount)}</div>
-          <div class="rec-card-day" style="color:${isDone?'var(--grn)':'var(--t3)'}">${isDone?'✓ Este mes':'Pendiente'}</div>
+          <div class="rec-card-amt">${fU(f.monto)}</div>
+          <div class="rec-card-day" style="color:${pago?'var(--grn)':'var(--t3)'}">${pago?'✓ Pago este mes':'Pendiente'}</div>
         </div>
-      </div>
-      <div class="rec-card-actions">
-        <button class="rec-card-act" onclick="${isDone?'':('addRecItem(\''+esc(r.id)+'\')')}" style="${isDone?'color:var(--grn)':''}">${isDone?'✓ Ya agregado':'+ Agregar ahora'}</button>
-        <button class="rec-card-act" onclick="openEditRec('${esc(r.id)}')">✏ Editar</button>
-        <button class="rec-card-act del" onclick="askDelRecById('${esc(r.id)}')">🗑</button>
       </div>
     </div>`;
   });
   return h;
 }
 
-// Rec form
+// Formulario de gasto fijo
 function openAddRec(){
   S.rfEditId=null;S.rfNpStr='';rfRenderAmt();S.rfCat='Vivienda';rfRenderCatGrid();rfSetMet('Débito');
-  document.getElementById('rf-name').value='';document.getElementById('rf-day').value='';
+  document.getElementById('rf-name').value='';document.getElementById('rf-day').value='';document.getElementById('rf-clave').value='';
   document.getElementById('del-rec-btn').style.display='none';
-  document.getElementById('rec-form-ttl').textContent='Nuevo recurrente';
+  document.getElementById('rec-form-ttl').textContent='Nuevo gasto fijo';
   document.getElementById('ov-rec').classList.add('open');
 }
 function openEditRec(id){
-  const r=S.recurrentes.find(x=>x.id===id);if(!r)return;
-  S.rfEditId=id;S.rfNpStr=String(r.amount);rfRenderAmt();S.rfCat=r.categoria;rfRenderCatGrid();rfSetMet(r.metodo||'Débito');
-  document.getElementById('rf-name').value=r.name||'';
-  document.getElementById('rf-day').value=r.dayOfMonth||'';
+  const r=S.fijos.find(x=>x.id===id);if(!r)return;
+  S.rfEditId=id;S.rfNpStr=String(r.monto);rfRenderAmt();S.rfCat=r.categoria;rfRenderCatGrid();rfSetMet(r.metodo||'Débito');
+  document.getElementById('rf-name').value=r.nombre||'';
+  document.getElementById('rf-day').value=r.dia||'';
+  document.getElementById('rf-clave').value=r.clave||'';
   document.getElementById('del-rec-btn').style.display='block';
-  document.getElementById('rec-form-ttl').textContent='Editar recurrente';
+  document.getElementById('rec-form-ttl').textContent='Editar gasto fijo';
   document.getElementById('ov-rec').classList.add('open');
 }
 function saveRec(){
-  const name=document.getElementById('rf-name').value.trim();
+  const nombre=document.getElementById('rf-name').value.trim();
   const amt=parseFloat(S.rfNpStr)||0;
-  if(!name){toast('Ingresá un nombre');return}
+  if(!nombre){toast('Ingresá un nombre');return}
   if(!amt){toast('Ingresá un monto');return}
-  const dayOfMonth=parseInt(document.getElementById('rf-day').value)||null;
-  const r={id:S.rfEditId||(Date.now()+Math.random().toString(36).slice(2,5)),name,amount:amt,categoria:S.rfCat,metodo:S.rfMet,dayOfMonth};
-  if(S.rfEditId){const i=S.recurrentes.findIndex(x=>x.id===S.rfEditId);if(i>=0)S.recurrentes[i]=r;}
-  else S.recurrentes.push(r);
-  saveRecs();closeOv(null,'ov-rec');renderContent();toast('Guardado ✓');
+  const dia=parseInt(document.getElementById('rf-day').value,10);
+  const f={id:S.rfEditId||(Date.now()+Math.random().toString(36).slice(2,5)),nombre,categoria:S.rfCat,monto:amt,dia:(dia>=1&&dia<=31)?dia:null,clave:document.getElementById('rf-clave').value.trim(),metodo:S.rfMet};
+  closeOv(null,'ov-rec');apiSetFijo(f);toast('Guardado ✓');
 }
-function askDelRecById(id){S.pendDelRec=id;document.getElementById('conf').classList.add('open')}
 function askDelRec(){S.pendDelRec=S.rfEditId;document.getElementById('conf').classList.add('open')}
 function rfRenderAmt(){const s=S.rfNpStr||'';if(!s){document.getElementById('rf-amt-num').textContent='0';return}const pts=s.split('.');document.getElementById('rf-amt-num').textContent=parseInt(pts[0]||'0').toLocaleString('es-UY')+(pts.length>1?','+(pts[1]||''):'');}
 function rfNpP(v){if(v==='.'&&S.rfNpStr.includes('.'))return;if(S.rfNpStr==='0'&&v!=='.')S.rfNpStr=v;else S.rfNpStr+=v;if(S.rfNpStr.length>10)S.rfNpStr=S.rfNpStr.slice(0,10);rfRenderAmt();}
@@ -1420,21 +1611,22 @@ function renderTabMas(){
   const oc=id=>opens[id]?' open':'';
 
   // Portfolio (siempre visible arriba)
-  const totUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*parseFloat(iv.curPrice||0))*S.usdRate,0);
+  const totUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*(parseFloat(iv.curPrice||0)||parseFloat(iv.buyPrice||0)))*S.usdRate,0);
   const costUYU=S.invs.reduce((a,iv)=>a+invCost(iv)*S.usdRate,0);  // neto: incluye comisiones
   const pl=totUYU-costUYU;const plP=costUYU>0?((pl/costUYU)*100).toFixed(1):0;
 
   let h=`<div class="sec-div">Portfolio</div>
   <div class="port-total"><div class="pt-lbl">Valor total · UYU</div><div class="pt-val">${fU(totUYU)}</div><div class="pt-sub">${pl>=0?'▲ +':'▼ '}${fU(pl)} (${pl>=0?'+':''}${plP}%) · 1 USD = $U ${S.usdRate}</div></div>`;
+  if(S._invErr)h+=`<div style="font-size:11px;color:var(--redT);background:var(--redl);border-radius:8px;padding:8px 10px;margin:8px 14px 0;line-height:1.4">⚠️ El Apps Script no tiene la versión con inversiones: los montos se guardan sólo en este dispositivo hasta publicar la versión nueva.</div>`;
 
   S.invs.forEach(iv=>{
     const qty=parseFloat(iv.qty||0),buy=parseFloat(iv.buyPrice||0),cur=parseFloat(iv.curPrice||0),fee=parseFloat(iv.fee||0);
-    const valUSD=qty*cur;
+    const valUSD=cur?qty*cur:Math.round(qty*buy*100)/100;  // sin precio actual cargado, vale lo que costó
     const grossUSD=qty*buy,netUSD=invCost(iv);          // bruto = sin comisión, neto = costo total
     const plG=valUSD-grossUSD,plGP=grossUSD>0?((plG/grossUSD)*100).toFixed(1):0;
     const plN=valUSD-netUSD, plNP=netUSD>0?((plN/netUSD)*100).toFixed(1):0;
     const abbr=(iv.ticker||iv.name.split(/[\s\/]/)[0]).slice(0,4).toUpperCase();
-    const sub=[iv.ticker||iv.isin,iv.broker,fmtInvDate(iv.buyDate)].filter(Boolean).join(' · ');
+    const sub=[iv.ticker||iv.isin,iv.broker,fmtInvDate(iv.buyDate),(!cur&&qty>0)?'a precio de compra':''].filter(Boolean).join(' · ');
     h+=`<div class="pos-card"><div class="pos-top"><div class="pos-ticker">${esc(abbr)}</div><div class="pos-inf"><div class="pos-name">${esc(iv.name)}</div><div class="pos-sub">${esc(sub)}</div></div><div class="pos-r"><div class="pos-uyu">${fU(valUSD*S.usdRate)}</div><div class="pos-pl ${plN>=0?'up':'dn'}" title="P&amp;L neto: valor de mercado menos el costo total con comisión">${plN>=0?'▲':'▼'} ${fUSD(Math.abs(plN))} (${plN>=0?'+':''}${plNP}%)</div></div></div>
     <div class="pos-grid">
       <div><div class="pcl">Cantidad</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${qty||''}" placeholder="0" onchange="updInv('${iv.id}','qty',this.value)"></div>
@@ -1449,14 +1641,14 @@ function renderTabMas(){
     </div>${iv.note?`<div class="pos-note">${esc(iv.note)}</div>`:''}</div>`;
   });
 
-  // Recurrentes (colapsable)
-  const recCnt=S.recurrentes.length;
+  // Gastos fijos (colapsable) — viven en la hoja "Fijos" del Sheet
+  const recCnt=S.fijos.length;
   h+=`<div class="collapse${oc('recs')}" id="col-recs">
     <div class="collapse-hdr" onclick="toggleCollapse('recs')">
-      <div class="collapse-title">🔁 Recurrentes ${recCnt?`<span class="collapse-count">${recCnt}</span>`:''}</div>
+      <div class="collapse-title">📌 Gastos fijos ${recCnt?`<span class="collapse-count">${recCnt}</span>`:''}</div>
       <span class="collapse-chev">▾</span>
     </div>
-    <div class="collapse-body">${buildRecList()}</div>
+    <div class="collapse-body">${buildFijosList()}</div>
   </div>`;
 
   // Presupuesto por categoría (colapsable) — vive en la hoja "Presupuestos" del Sheet
@@ -1519,7 +1711,7 @@ function toggleCollapse(id){
   try{localStorage.setItem('jfin_opens',JSON.stringify(opens));}catch(e){}
 }
 
-function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;iv.totalCost=invCost(iv);saveInvs();renderTabMas();}}
+function updInv(id,f,v){const iv=S.invs.find(x=>x.id===id);if(iv){iv[f]=parseFloat(v)||0;iv.totalCost=invCost(iv);saveInvs();apiSetInv(iv);renderTabMas();}}
 function setBudgetInp(cat,v){const n=parseFloat(v)||0;apiSetBudget(cat,n);toast(n>0?'Tope guardado ✓':'Tope quitado');}
 function saveUrl(){const u=document.getElementById('c-url').value.trim();S.url=u;localStorage.setItem('jfin_url',u);toast(u?'URL guardada ✓':'URL eliminada');loadMovs();renderTabMas();}
 function saveRate(){const r=parseFloat(document.getElementById('c-usd').value)||43;S.usdRate=r;localStorage.setItem('jfin_usd',r);toast('Tipo de cambio actualizado');renderTabMas();}
@@ -1535,7 +1727,8 @@ function setTab(t){
   // El tab Mes actual está clavado al mes calendario: sin flechas de navegación
   document.querySelectorAll('.mn-btn').forEach(b=>b.style.visibility=t===3?'hidden':'visible');
   renderML();
-  if(t===3)apiBudgets();
+  if(t===3){apiBudgets();apiFijos();}
+  if(t===2)apiInvs();
   renderContent();
 }
 
@@ -1612,7 +1805,7 @@ function saveForm(){
   } else {
     const{m:nm,y:ny}=mFrom(fecha);
     if(nm===S.month&&ny===S.year){apiAdd(m);toast('Guardado ✓');}
-    else{const oc=lc(nm,ny)||[];oc.push(m);sc(oc,nm,ny);if(S.url){af({action:'add',...m,month:nm,year:ny});}toast('Guardado en '+MESES[nm-1]+' ✓');}
+    else{const oc=lc(nm,ny)||[];oc.push(m);sc(oc,nm,ny);if(S.url){af({action:'add',...m,month:nm,year:ny});}renderContent();toast('Guardado en '+MESES[nm-1]+' ✓');}
   }
 }
 
@@ -1630,8 +1823,7 @@ function doDelete(){
   S.pendDel=null;S.pendDelRec=null;
   if(delMov){closeOv(null,'ov-form');apiDel(delMov);toast('Eliminado');}
   else if(delRec){
-    S.recurrentes=S.recurrentes.filter(x=>x.id!==delRec);
-    saveRecs();closeOv(null,'ov-rec');renderContent();toast('Recurrente eliminado');
+    closeOv(null,'ov-rec');apiDelFijo(delRec);toast('Gasto fijo eliminado');
   }
 }
 
@@ -1650,7 +1842,7 @@ async function doLogin(){
   if(r&&r.status==='ok'){
     localStorage.setItem('jfin_key',k);
     S.movs=r.data||[];sc(S.movs);S.loading=false;
-    hideLogin();renderContent();fetchRate();apiBudgets();
+    hideLogin();renderContent();fetchRate();apiBudgets();apiFijos();apiInvs();
   }else{
     S.key='';localStorage.removeItem('jfin_key');
     err.classList.add('on');btn.disabled=false;btn.textContent='Entrar';
@@ -1664,7 +1856,7 @@ function logout(){S.key='';localStorage.removeItem('jfin_key');location.reload()
   try{localStorage.removeItem('jfin_budgets')}catch(e){}
   renderML();
   renderContent();
-  if(S.key){loadMovs();fetchRate();apiBudgets();}
+  if(S.key){loadMovs();fetchRate();apiBudgets();apiFijos();apiInvs();}
   else{showLogin();}
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){
