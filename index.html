@@ -311,6 +311,20 @@ button,[role="button"]{touch-action:manipulation}
 .pcv{font-size:12px;font-weight:700;color:var(--t1);line-height:1.3}
 .pcv.up{color:var(--grn)}.pcv.dn{color:var(--red)}
 .pcv .pct{font-weight:500;font-size:11px}
+.inv-chart{background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);margin:10px 14px 0;padding:12px 12px 10px;box-shadow:var(--sh)}
+.ic-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.ic-legs{display:flex;flex-wrap:wrap;gap:4px 12px}
+.ic-leg{font-size:11px;font-weight:600;color:var(--t2);display:inline-flex;align-items:center;gap:5px}
+.ic-leg b{font-weight:600}.ic-leg b.up{color:var(--grnT)}.ic-leg b.dn{color:var(--redT)}
+.ic-sw{width:9px;height:9px;border-radius:2px;display:inline-block}
+.ic-upd{font-size:10px;color:var(--t3);white-space:nowrap}
+.ic-x{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);padding-right:34px;margin-top:2px}
+.ic-segs{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:2px;margin-top:8px}
+.ic-seg{flex:1;border:0;background:none;font-family:inherit;font-size:11px;font-weight:500;color:var(--t2);padding:5px 0;border-radius:6px;cursor:pointer}
+.ic-seg.on{background:var(--surf);color:var(--t1);font-weight:600;box-shadow:var(--sh)}
+.pos-spark{margin:-4px 0 10px}
+.pos-auto{font-size:12px;font-weight:600;color:var(--t1);padding:4px 0}
+.pos-auto span{font-size:10px;font-weight:500;color:var(--t3)}
 .pos-note{font-size:10px;color:var(--t3);line-height:1.45;margin-top:8px;padding-left:8px;border-left:2px solid var(--brd)}
 .pcl{font-size:10px;color:var(--t3);font-weight:500;margin-bottom:3px}
 .pos-inp{width:100%;background:var(--surf);border:1px solid #bfdbfe;border-radius:6px;color:#1d4ed8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:3px 6px;outline:none;text-align:center}
@@ -622,6 +636,38 @@ function loadInvs(){
   return out;
 }
 
+// ── COTIZACIONES (lógica pura) — testeada en tests/cotizaciones.test.js, sin S ni DOM ──
+// cots = {id:[[AAAA-MM-DD, precio], …]} ordenado por fecha (hoja Cotizaciones del Sheet).
+const INV_COL=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#6250d6'];  // un color fijo por posición, en orden
+function isoAdd(iso,n){const p=String(iso).split('-');return new Date(Date.UTC(+p[0],+p[1]-1,+p[2])+n*864e5).toISOString().slice(0,10)}
+function invLast(cots,id){const s=cots&&cots[id];return s&&s.length?s[s.length-1]:null}
+// Línea de cada tarjeta: desde la compra, y al menos los últimos 90 días (para ver de dónde venía).
+function invSerie(cots,iv,hoy){
+  const s=(cots&&cots[iv.id])||[];
+  const desde=[iv.buyDate||hoy,isoAdd(hoy,-90)].sort()[0];
+  return s.filter(r=>r[0]>=desde);
+}
+// Gráfico conjunto: % contra el precio de compra, cada posición desde su fecha de compra
+// (arranca en 0 % ese día) y recortado a `desde` (1M / 3M / desde compra).
+function invPctSeries(cots,invs,desde){
+  return invs.filter(iv=>iv.buyPrice>0&&iv.buyDate&&cots&&cots[iv.id]).map(iv=>{
+    const from=[iv.buyDate,desde].sort()[1];
+    const pct=p=>(p/iv.buyPrice-1)*100;
+    const pts=cots[iv.id].filter(r=>r[0]>=from).map(r=>[r[0],pct(r[1])]);
+    if(iv.buyDate>=desde)pts.unshift([iv.buyDate,0]);  // el día de compra: 0 % y, si hay, el cierre de ese día
+    else{const prev=cots[iv.id].filter(r=>r[0]<desde).pop();if(prev)pts.unshift([desde,pct(prev[1])]);}
+    return {id:iv.id,pts};
+  }).filter(s=>s.pts.length);
+}
+// Líneas de la grilla del eje Y (en %): un paso redondo según el rango, siempre con el 0.
+function pctTicks(mn,mx){
+  const span=Math.max(mx-mn,1),step=[1,2,5,10,20,25,50,100].find(s=>span/s<=4)||200;
+  const out=[];for(let v=Math.floor(mn/step)*step;v<=Math.ceil(mx/step)*step;v+=step)out.push(v+0);
+  if(!out.includes(0))out.push(0);
+  return out.sort((a,b)=>a-b);
+}
+// ── /COTIZACIONES
+
 // ── FIJOS + MARGEN (lógica pura) — testeada en tests/margen.test.js, sin S ni DOM ──
 function normTxt(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
 // La clave tiene que arrancar una palabra; las de menos de 4 letras, ser la palabra entera
@@ -692,6 +738,9 @@ const S={
   _budErr:false,
   rfNpStr:'',rfCat:'Vivienda',rfMet:'Débito',rfEditId:null,
   invs:loadInvs(),
+  cots:(()=>{try{return JSON.parse(localStorage.getItem('jfin_cots')||'{}')||{}}catch(e){return{}}})(),
+  cotsTs:parseInt(localStorage.getItem('jfin_cots_ts')||'0',10)||0,
+  invRng:'todo',  // gráfico conjunto: '1m' | '3m' | 'todo'
 };
 
 // ── FORMAT ────────────────────────────────────────────────────────
@@ -848,6 +897,75 @@ async function apiSetInv(iv){
   const r=await af({action:'setinv',id:iv.id,nombre:iv.name,qty:iv.qty||0,buyPrice:iv.buyPrice||0,fee:iv.fee||0,curPrice:iv.curPrice||0,buyDate:iv.buyDate||'',note:iv.note||''});
   if(r&&r.auth===false){showLogin();return;}
   if(!r||r.status!=='ok'){if(isUnknownAction(r))S._invErr=true;toast('No se pudo guardar en el Sheet');}
+}
+// Cotizaciones: lee la hoja Cotizaciones. Cada 6 h, además, le pide al Apps Script que baje
+// de FT lo que falte (actcots); el disparador diario del Apps Script lo hace igual aunque no abras la app.
+// Con el Apps Script viejo (sin estas acciones) no pasa nada: queda el precio que se carga a mano.
+async function apiCots(){
+  if(!S.url||!S.key)return;
+  const vieja=Date.now()-S.cotsTs>6*36e5;
+  const r=await af({action:vieja?'actcots':'cots'});
+  if(r&&r.auth===false){showLogin();return;}
+  if(!(r&&r.status==='ok'&&r.cots))return;
+  S.cots=r.cots;
+  if(vieja)S.cotsTs=Date.now();
+  try{localStorage.setItem('jfin_cots',JSON.stringify(S.cots));localStorage.setItem('jfin_cots_ts',String(S.cotsTs));}catch(e){}
+  S.invs.forEach(iv=>{const l=invLast(S.cots,iv.id);if(l)iv.curPrice=l[1];});
+  saveInvs();
+  if(S.tab===2)renderTabMas();
+}
+function invAbbr(iv){return (iv.ticker||iv.name.split(/[\s\/]/)[0]).slice(0,4).toUpperCase()}
+function invCur(iv){const l=invLast(S.cots,iv.id);return l?l[1]:(parseFloat(iv.curPrice)||0)}
+function setInvRng(v){S.invRng=v;renderTabMas()}
+function hoyISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fDM(iso){const p=String(iso).split('-');return p.length===3?(+p[2])+'/'+(+p[1]):''}
+const MES_C=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+// Gráfico conjunto (% desde la compra de cada posición).
+function buildInvChart(){
+  const hoy=hoyISO();
+  const compras=S.invs.filter(iv=>iv.buyDate).map(iv=>iv.buyDate).sort();
+  if(!compras.length)return'';
+  const desde=S.invRng==='1m'?isoAdd(hoy,-30):S.invRng==='3m'?isoAdd(hoy,-90):compras[0];
+  const ser=invPctSeries(S.cots,S.invs,desde);
+  if(!ser.length)return'';
+  const t=d=>Date.parse(d+'T00:00:00Z'),T0=t(desde),T1=Math.max(t(hoy),T0+864e5);
+  const ys=ser.flatMap(s=>s.pts.map(p=>p[1])).concat([0]);
+  const ticks=pctTicks(Math.min(...ys),Math.max(...ys));
+  const mn=Math.min(ticks[0],...ys),mx=Math.max(ticks[ticks.length-1],...ys),pad=(mx-mn)*.06||1;
+  const W=340,H=130,PR=34,x=d=>(t(d)-T0)/(T1-T0)*(W-PR),y=v=>6+(H-12)*(1-(v-mn+pad)/(mx-mn+2*pad));
+  const col=id=>INV_COL[Math.max(0,S.invs.findIndex(iv=>iv.id===id))%INV_COL.length];
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="Porcentaje desde la compra de cada inversión">`;
+  ticks.forEach(v=>{g+=`<line x1="0" x2="${W-PR}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?'#b8b8b4':'#ececea'}" stroke-width="1"${v===0?' stroke-dasharray="3 3"':''}/><text x="${W-PR+4}" y="${y(v)+3.5}" font-size="10" fill="#8a8a90">${v>0?'+':''}${v}%</text>`;});
+  ser.forEach(s=>{
+    const c=col(s.id),pts=s.pts;
+    if(pts.length>1)g+=`<polyline fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p=>x(p[0]).toFixed(1)+','+y(p[1]).toFixed(1)).join(' ')}"/>`;
+    const l=pts[pts.length-1];
+    g+=`<circle cx="${x(l[0]).toFixed(1)}" cy="${y(l[1]).toFixed(1)}" r="3.5" fill="${c}" stroke="#fff" stroke-width="1.5"/>`;
+  });
+  g+='</svg>';
+  const lbl=d=>S.invRng==='todo'?MES_C[+d.split('-')[1]-1]:fDM(d);
+  const leg=ser.map(s=>{const iv=S.invs.find(v=>v.id===s.id),l=s.pts[s.pts.length-1][1];
+    return `<span class="ic-leg" title="${esc(iv.name)} · precio contra el de compra (sin comisión)"><span class="ic-sw" style="background:${col(s.id)}"></span>${esc(invAbbr(iv))} <b class="${l>=0?'up':'dn'}">${l>=0?'+':'−'}${Math.abs(l).toFixed(1)}%</b></span>`;}).join('');
+  const seg=[['1m','1M'],['3m','3M'],['todo','Desde compra']].map(([k,t])=>`<button class="ic-seg${S.invRng===k?' on':''}" onclick="setInvRng('${k}')">${t}</button>`).join('');
+  const last=Object.keys(S.cots).map(k=>invLast(S.cots,k)).filter(Boolean).map(r=>r[0]).sort().pop();
+  return `<div class="inv-chart"><div class="ic-top"><div class="ic-legs">${leg}</div>${last?`<span class="ic-upd" title="Cierres diarios de FT Markets, guardados en la hoja Cotizaciones">auto ${fDM(last)}</span>`:''}</div>${g}
+    <div class="ic-x"><span>${lbl(desde)}</span><span>${lbl(isoAdd(desde,Math.round((T1-T0)/864e5/2)))}</span><span>${lbl(hoy)}</span></div>
+    <div class="ic-segs">${seg}</div></div>`;
+}
+// Línea de cada tarjeta: precio, con la línea punteada del precio de compra.
+function buildInvSpark(iv,c){
+  const s=invSerie(S.cots,iv,hoyISO());
+  if(s.length<2)return'';
+  const buy=parseFloat(iv.buyPrice)||0,vals=s.map(r=>r[1]),all=buy?vals.concat([buy]):vals;
+  const mn=Math.min(...all),mx=Math.max(...all),pd=(mx-mn)*.1||1,W=300,H=40;
+  const y=v=>H-2-(H-4)*((v-mn+pd)/(mx-mn+2*pd)),x=i=>i*(W/(vals.length-1));
+  const bi=iv.buyDate?s.findIndex(r=>r[0]>=iv.buyDate):-1;
+  let g=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" width="100%" height="${H}" style="display:block" role="img" aria-label="Precio de ${esc(iv.name)}">`;
+  if(buy)g+=`<line x1="0" x2="${W}" y1="${y(buy)}" y2="${y(buy)}" stroke="#a8a8a4" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`;
+  if(bi>0)g+=`<polyline fill="none" stroke="${c}" stroke-opacity=".35" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round" points="${vals.slice(0,bi+1).map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ')}"/>`;
+  const from=Math.max(0,bi);
+  g+=`<polyline fill="none" stroke="${c}" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round" points="${vals.slice(from).map((v,i)=>x(i+from).toFixed(1)+','+y(v).toFixed(1)).join(' ')}"/></svg>`;
+  return `<div class="pos-spark" title="Punteado: tu precio de compra. Tramo claro: antes de comprar.">${g}</div>`;
 }
 
 // ── PERIOD ────────────────────────────────────────────────────────
@@ -1613,28 +1731,30 @@ function renderTabMas(){
   const oc=id=>opens[id]?' open':'';
 
   // Portfolio (siempre visible arriba)
-  const totUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*(parseFloat(iv.curPrice||0)||parseFloat(iv.buyPrice||0)))*S.usdRate,0);
+  const totUYU=S.invs.reduce((a,iv)=>a+(parseFloat(iv.qty||0)*(invCur(iv)||parseFloat(iv.buyPrice||0)))*S.usdRate,0);
   const costUYU=S.invs.reduce((a,iv)=>a+invCost(iv)*S.usdRate,0);  // neto: incluye comisiones
   const pl=totUYU-costUYU;const plP=costUYU>0?((pl/costUYU)*100).toFixed(1):0;
 
   let h=`<div class="sec-div">Portfolio</div>
-  <div class="port-total"><div class="pt-lbl">Valor total · UYU</div><div class="pt-val">${fU(totUYU)}</div><div class="pt-sub">${pl>=0?'▲ +':'▼ '}${fU(pl)} (${pl>=0?'+':''}${plP}%) · 1 USD = $U ${S.usdRate}</div></div>`;
+  <div class="port-total"><div class="pt-lbl">Valor total · UYU</div><div class="pt-val">${fU(totUYU)}</div><div class="pt-sub">${pl>=0?'▲ +':'▼ '}${fU(pl)} (${pl>=0?'+':''}${plP}%) · 1 USD = $U ${S.usdRate}</div></div>${buildInvChart()}`;
   if(S._invErr)h+=`<div style="font-size:11px;color:var(--redT);background:var(--redl);border-radius:8px;padding:8px 10px;margin:8px 14px 0;line-height:1.4">⚠️ El Apps Script no tiene la versión con inversiones: los montos se guardan sólo en este dispositivo hasta publicar la versión nueva.</div>`;
 
-  S.invs.forEach(iv=>{
-    const qty=parseFloat(iv.qty||0),buy=parseFloat(iv.buyPrice||0),cur=parseFloat(iv.curPrice||0),fee=parseFloat(iv.fee||0);
+  S.invs.forEach((iv,ix)=>{
+    const qty=parseFloat(iv.qty||0),buy=parseFloat(iv.buyPrice||0),cur=invCur(iv),fee=parseFloat(iv.fee||0);
+    const col=INV_COL[ix%INV_COL.length],auto=invLast(S.cots,iv.id);
     const valUSD=cur?qty*cur:Math.round(qty*buy*100)/100;  // sin precio actual cargado, vale lo que costó
     const grossUSD=qty*buy,netUSD=invCost(iv);          // bruto = sin comisión, neto = costo total
     const plG=valUSD-grossUSD,plGP=grossUSD>0?((plG/grossUSD)*100).toFixed(1):0;
     const plN=valUSD-netUSD, plNP=netUSD>0?((plN/netUSD)*100).toFixed(1):0;
-    const abbr=(iv.ticker||iv.name.split(/[\s\/]/)[0]).slice(0,4).toUpperCase();
+    const abbr=invAbbr(iv);
     const sub=[iv.ticker||iv.isin,iv.broker,fmtInvDate(iv.buyDate),(!cur&&qty>0)?'a precio de compra':''].filter(Boolean).join(' · ');
-    h+=`<div class="pos-card"><div class="pos-top"><div class="pos-ticker">${esc(abbr)}</div><div class="pos-inf"><div class="pos-name">${esc(iv.name)}</div><div class="pos-sub">${esc(sub)}</div></div><div class="pos-r"><div class="pos-uyu">${fU(valUSD*S.usdRate)}</div><div class="pos-pl ${plN>=0?'up':'dn'}" title="P&amp;L neto: valor de mercado menos el costo total con comisión">${plN>=0?'▲':'▼'} ${fUSD(Math.abs(plN))} (${plN>=0?'+':''}${plNP}%)</div></div></div>
+    h+=`<div class="pos-card"><div class="pos-top"><div class="pos-ticker" style="color:${col};border-color:${col}40;background:${col}12">${esc(abbr)}</div><div class="pos-inf"><div class="pos-name">${esc(iv.name)}</div><div class="pos-sub">${esc(sub)}</div></div><div class="pos-r"><div class="pos-uyu">${fU(valUSD*S.usdRate)}</div><div class="pos-pl ${plN>=0?'up':'dn'}" title="P&amp;L neto: valor de mercado menos el costo total con comisión">${plN>=0?'▲':'▼'} ${fUSD(Math.abs(plN))} (${plN>=0?'+':''}${plNP}%)</div></div></div>${buildInvSpark(iv,col)}
     <div class="pos-grid">
       <div><div class="pcl">Cantidad</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${qty||''}" placeholder="0" onchange="updInv('${iv.id}','qty',this.value)"></div>
       <div><div class="pcl">Compra USD / u.</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${buy||''}" placeholder="0.00" onchange="updInv('${iv.id}','buyPrice',this.value)"></div>
       <div><div class="pcl">Comisión USD</div><input type="number" step="any" class="pos-inp" style="color:var(--t1);border-color:var(--brd)" value="${fee||''}" placeholder="0.00" onchange="updInv('${iv.id}','fee',this.value)"></div>
-      <div><div class="pcl">Último precio USD</div><input type="number" step="any" class="pos-inp" value="${cur||''}" placeholder="0.00" onchange="updInv('${iv.id}','curPrice',this.value)"></div>
+      ${auto?`<div title="Cierre de FT Markets del ${fmtInvDate(auto[0])}, se actualiza solo"><div class="pcl">Último precio USD</div><div class="pos-auto">${cur.toFixed(2)} <span>auto ${fDM(auto[0])}</span></div></div>`
+        :`<div><div class="pcl">Último precio USD</div><input type="number" step="any" class="pos-inp" value="${cur||''}" placeholder="0.00" onchange="updInv('${iv.id}','curPrice',this.value)"></div>`}
     </div>
     <div class="pos-cb">
       <div><div class="pcl">Valor mercado</div><div class="pcv">${fUSD(valUSD)}</div></div>
@@ -1730,7 +1850,7 @@ function setTab(t){
   document.querySelectorAll('.mn-btn').forEach(b=>b.style.visibility=t===3?'hidden':'visible');
   renderML();
   if(t===3){apiBudgets();apiFijos();}
-  if(t===2)apiInvs();
+  if(t===2){apiInvs();apiCots();}
   renderContent();
 }
 
@@ -1844,7 +1964,7 @@ async function doLogin(){
   if(r&&r.status==='ok'){
     localStorage.setItem('jfin_key',k);
     S.movs=r.data||[];sc(S.movs);S.loading=false;
-    hideLogin();renderContent();fetchRate();apiBudgets();apiFijos();apiInvs();
+    hideLogin();renderContent();fetchRate();apiBudgets();apiFijos();apiInvs();apiCots();
   }else{
     S.key='';localStorage.removeItem('jfin_key');
     err.classList.add('on');btn.disabled=false;btn.textContent='Entrar';
@@ -1858,7 +1978,7 @@ function logout(){S.key='';localStorage.removeItem('jfin_key');location.reload()
   try{localStorage.removeItem('jfin_budgets')}catch(e){}
   renderML();
   renderContent();
-  if(S.key){loadMovs();fetchRate();apiBudgets();apiFijos();apiInvs();}
+  if(S.key){loadMovs();fetchRate();apiBudgets();apiFijos();apiInvs();apiCots();}
   else{showLogin();}
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){
