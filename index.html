@@ -589,6 +589,8 @@ const INV_SEED=[
    qty:0,buyPrice:0,fee:0,totalCost:0,curPrice:0,broker:'Itaú Inversiones',buyDate:'',note:''},
   {id:'ttwo',name:'Take-Two Interactive Software Inc.',ticker:'TTWO',isin:'',tipo:'accion',exch:'NASDAQ',cur:'USD',
    qty:0,buyPrice:0,fee:0,totalCost:0,curPrice:0,broker:'Gletir',buyDate:'',note:''},
+  {id:'nvda',name:'NVIDIA Corporation',ticker:'NVDA',isin:'',tipo:'accion',exch:'NASDAQ',cur:'USD',
+   qty:0,buyPrice:0,fee:0,totalCost:0,curPrice:0,broker:'Prex Inversiones',buyDate:'',note:''},
 ];
 const INV_NUM=['qty','buyPrice','fee','curPrice'];
 function invCost(iv){return Math.round(((parseFloat(iv.qty)||0)*(parseFloat(iv.buyPrice)||0)+(parseFloat(iv.fee)||0))*100)/100}
