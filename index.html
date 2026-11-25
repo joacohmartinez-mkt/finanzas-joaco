@@ -715,7 +715,7 @@ function fijoPagado(f,movs){
 function fijosEstado(fijos,movs,prevMovs){
   return (fijos||[]).map(f=>{
     const pagado=fijoPagado(f,movs),pend=pagado<=0;
-    return{f,pagado,pend,est:pend?(fijoPagado(f,prevMovs)||parseFloat(f.monto)||0):pagado};
+    return{f,pagado,pend,est:pend?Math.max(fijoPagado(f,prevMovs),parseFloat(f.monto)||0):pagado};
   });
 }
 // margen = ingresos − egresos − fijos pendientes − lo que queda de cada tope variable.
