@@ -248,6 +248,11 @@ button,[role="button"]{touch-action:manipulation}
 .mg-leg{display:grid;grid-template-columns:10px 1fr auto;gap:7px 9px;align-items:center;font-size:12px;color:var(--t2)}
 .mg-leg i{width:10px;height:10px;border-radius:3px;display:block}
 .mg-leg b{font-weight:600;color:var(--t1);text-align:right}
+.mg-cp{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd)}
+.mg-cp-l{font-size:12px;font-weight:600;color:var(--t2)}
+.mg-cp-s{font-size:11px;color:var(--t3);margin-top:1px}
+.mg-cp b{font-size:17px;font-weight:700;color:var(--grn);white-space:nowrap}
+.mg-cp b.dn{color:var(--red)}
 .sim-row{display:flex;gap:8px}
 .sim-inp,.sim-sel{height:42px;border:1px solid var(--brd);border-radius:var(--rs);background:var(--bg);color:var(--t1);font-family:'Inter',sans-serif;font-size:16px;padding:0 10px;min-width:0}
 .sim-inp{width:112px;flex-shrink:0}.sim-sel{flex:1;font-size:13px}
@@ -738,6 +743,15 @@ function proyCat(b,spent,its,dim,day){
   if(!its.length)return null;
   const pag=its.reduce((a,x)=>a+x.pagado,0),pen=its.reduce((a,x)=>a+(x.pend?x.est:0),0);
   return b.fijo?spent+pen:Math.max(0,spent-pag)*dim/day+pag+pen;
+}
+// Cierre probable = ingresos − egresos − fijos pendientes − variables al ritmo del mes.
+// El ritmo sale de lo gastado en categorías no fijas (con o sin tope), sin contar los fijos ya pagados.
+function calcCierre(mg,buds,day,dim){
+  const pagCat={};(mg.items||[]).forEach(x=>{pagCat[x.f.categoria]=(pagCat[x.f.categoria]||0)+x.pagado});
+  let varT=0;
+  Object.keys(mg.catT||{}).forEach(c=>{if(buds&&buds[c]&&buds[c].fijo)return;varT+=Math.max(0,mg.catT[c]-(pagCat[c]||0));});
+  const diario=day>0?varT/day:0,resta=Math.max(0,dim-day),resto=diario*resta;
+  return{diario,resta,resto,cierre:mg.ing-mg.egr-mg.falta-resto};
 }
 // ── /FIJOS + MARGEN ──
 
@@ -1544,7 +1558,13 @@ function mgCardInner(mg,sim){
   <div class="mg-num${mar<0?' dn':''}${HID}"${REV}>${mar<0?'−':'+'}${fU(Math.abs(mar))}</div>
   <div class="mg-sub">Lo que te sobra pagando todo y usando tus topes</div>
   <div class="mg-bar">${seg(mg.egr,MG_COL.pag)}${seg(mg.falta,MG_COL.fal)}${seg(res,MG_COL.res)}${seg(a,MG_COL.sim)}${seg(mar,MG_COL.mar)}</div>
-  <div class="mg-leg">${leg(MG_COL.pag,'Ya pagado',fU(mg.egr))}${leg(MG_COL.fal,'Falta pagar',fU(mg.falta))}${leg(MG_COL.res,'Reservado en topes',fU(res))}${a>0?leg(MG_COL.sim,'Gasto simulado',fU(a)):''}${leg(MG_COL.mar,'Margen real',(mar<0?'−':'')+fU(Math.abs(mar)))}</div>`;
+  <div class="mg-leg">${leg(MG_COL.pag,'Ya pagado',fU(mg.egr))}${leg(MG_COL.fal,'Falta pagar',fU(mg.falta))}${leg(MG_COL.res,'Reservado en topes',fU(res))}${a>0?leg(MG_COL.sim,'Gasto simulado',fU(a)):''}${leg(MG_COL.mar,'Margen real',(mar<0?'−':'')+fU(Math.abs(mar)))}</div>${mg.cp?cierreRow(mg.cp,a,HID,REV):''}`;
+}
+function cierreRow(cp,a,HID,REV){
+  const v=cp.cierre-a;
+  const dias=cp.resta===0?'último día del mes':cp.resta===1?'el día que queda':`los ${cp.resta} días que quedan`;
+  const sub=cp.resta===0?'Fijos que faltan · '+dias:`Fijos que faltan + ~${fU(Math.round(cp.diario))}/día en variables ${dias}`;
+  return `<div class="mg-cp"><div><div class="mg-cp-l">Cierre probable a tu ritmo</div><div class="mg-cp-s${HID}"${REV}>${sub}</div></div><b class="${v<0?'dn':''}${HID}"${REV}>${v<0?'−':'+'}${fU(Math.abs(v))}</b></div>`;
 }
 function simRes(mg){
   const a=parseFloat(S.simAmt)||0;
@@ -1605,6 +1625,7 @@ function renderTab3(){
   const REV=S.hideBal?' onclick="event.stopPropagation();toggleBal()"':'';
   const buds=vigenteBudgets(first);
   const mg=calcMargen(movs,buds,S.fijos,prevMovsActual());
+  if(day>2&&movs.length)mg.cp=calcCierre(mg,buds,day,dim);
   S._mg=mg;
   let h=`<div class="sem-day">Día ${day} de ${dim}</div>
   <div class="chart-card" id="mg-card">${mgCardInner(mg,simRes(mg).s)}</div>
